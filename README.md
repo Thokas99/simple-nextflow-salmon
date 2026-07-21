@@ -1,6 +1,41 @@
 # Simple Nextflow Salmon
 
-DSL2 paired-end RNA-seq workflow:
+Reproducible DSL2 workflow for paired-end RNA-seq quantification with FastQC, MultiQC, GENCODE full-decoy Salmon indexing, Salmon quantification, tximport gene-level summaries, and basic count/mapping QC tables.
+
+## Table of Contents
+
+- [What This Pipeline Does](#what-this-pipeline-does)
+- [Workflow Overview](#workflow-overview)
+- [Repository Layout](#repository-layout)
+- [Requirements](#requirements)
+- [Install Environments](#install-environments)
+- [Reference Files](#reference-files)
+- [Samplesheet](#samplesheet)
+- [Run Locally](#run-locally)
+- [Run From GitHub](#run-from-github)
+- [Outputs](#outputs)
+- [Reference Reuse](#reference-reuse)
+- [Important Design Decisions](#important-design-decisions)
+- [Troubleshooting](#troubleshooting)
+- [Version](#version)
+
+## What This Pipeline Does
+
+This workflow takes paired-end FASTQ files and produces:
+
+- FastQC reports for each FASTQ.
+- A MultiQC report over FastQC outputs.
+- A full-genome decoy-aware Salmon reference from GENCODE raw files.
+- A Salmon index.
+- Salmon quantification for each sample.
+- tximport gene-level count, abundance, and length matrices.
+- Simple Salmon mapping and raw-count summary tables.
+
+It does **not** perform differential expression, biological interpretation, or filtering for downstream DE tools.
+
+## Workflow Overview
+
+The workflow order is explicit:
 
 ```text
 FASTQC
@@ -12,39 +47,67 @@ FASTQC
   -> RAW_COUNT_SUMMARY
 ```
 
-The reference stage is intentionally ordered after MultiQC by passing the MultiQC report into `BUILD_FULL_DECOY_REFERENCE` as a completion signal.
+Reference construction is technically independent of FastQC, but this pipeline intentionally waits for MultiQC before building references so the execution order is easy to follow.
 
-## Reference Files
-
-Default raw reference directory:
+## Repository Layout
 
 ```text
-reference/GRCh38_GENCODE/raw
+.
+├── main.nf
+├── nextflow.config
+├── envs/
+│   ├── qc.yml
+│   ├── salmon.yml
+│   └── r_tximport.yml
+├── modules/
+│   ├── fastqc.nf
+│   ├── multiqc.nf
+│   ├── build_full_decoy_reference.nf
+│   ├── salmon_index.nf
+│   ├── salmon_quant.nf
+│   ├── tximport.nf
+│   └── raw_count_summary.nf
+├── scripts/
+│   ├── tximport_gene_summary.R
+│   └── summary_stats.R
+├── docs/
+│   ├── install.md
+│   └── run_local.md
+└── reference/
+    └── GRCh38_GENCODE/
+        ├── raw/
+        └── derived/
 ```
 
-Expected current GENCODE Human release 50 / GRCh38.p14 files:
+Large reference files, FASTQs, Nextflow work directories, and result folders are intentionally ignored by git.
+
+## Requirements
+
+Install these on the machine where you run the workflow:
+
+- Nextflow
+- Micromamba or Conda
+- Git
+
+Check:
+
+```bash
+nextflow -version
+micromamba --version
+git --version
+```
+
+## Install Environments
+
+The workflow includes three small Micromamba/Conda YAML files:
 
 ```text
-gencode.v50.transcripts.fa.gz
-GRCh38.p14.genome.fa.gz
-gencode.v50.chr_patch_hapl_scaff.annotation.gtf.gz
+envs/qc.yml
+envs/salmon.yml
+envs/r_tximport.yml
 ```
 
-These are the GENCODE `ALL` transcript FASTA, `ALL` genome FASTA, and `ALL` comprehensive GTF. The pipeline fails early if the release, assembly, file count, or source naming does not match.
-
-## Samplesheet
-
-CSV or TSV with unique sample IDs:
-
-```csv
-sample,fastq_1,fastq_2
-UDB001,/path/to/UDB001_R1.fq.gz,/path/to/UDB001_R2.fq.gz
-UDB003,/path/to/UDB003_R1.fq.gz,/path/to/UDB003_R2.fq.gz
-```
-
-This refactor keeps sample IDs unique. Lane merging can be added later, but hiding it now makes the learning path less clear.
-
-## Run
+Recommended usage: let Nextflow create and cache them automatically:
 
 ```bash
 nextflow run . \
@@ -54,11 +117,113 @@ nextflow run . \
   -profile conda
 ```
 
-For a fresh local setup, see `docs/run_local.md`.
-For running from GitHub on another machine, see `docs/install.md`.
-The Micromamba/Conda YAMLs are documented in `docs/install.md` and stored under `envs/`.
+Manual environment creation is optional:
 
-Useful params:
+```bash
+micromamba env create -f envs/qc.yml
+micromamba env create -f envs/salmon.yml
+micromamba env create -f envs/r_tximport.yml
+```
+
+The environment files are:
+
+```yaml
+# envs/qc.yml
+name: salmon-rnaseq-qc
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - fastqc=0.12.1
+  - multiqc=1.30
+```
+
+```yaml
+# envs/salmon.yml
+name: salmon-rnaseq-salmon
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - salmon=2.3.4
+  - pigz=2.8
+  - seqkit=2.10.0
+```
+
+```yaml
+# envs/r_tximport.yml
+name: salmon-rnaseq-r
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - r-base=4.4
+  - r-data.table=1.15
+  - r-readr=2.1
+  - r-jsonlite=1.8
+  - bioconductor-tximport=1.34
+```
+
+## Reference Files
+
+Default raw reference directory:
+
+```text
+reference/GRCh38_GENCODE/raw
+```
+
+Expected current GENCODE Human Release 50 / GRCh38.p14 files:
+
+```text
+gencode.v50.transcripts.fa.gz
+GRCh38.p14.genome.fa.gz
+gencode.v50.chr_patch_hapl_scaff.annotation.gtf.gz
+```
+
+Download source:
+
+```text
+https://www.gencodegenes.org/human/
+```
+
+Use the GENCODE Human `ALL` files:
+
+- Transcript sequences `ALL`
+- Genome sequence GRCh38.p14 `ALL`
+- Comprehensive gene annotation `ALL`
+
+The pipeline validates the local reference directory before launching workflow processes. It fails early if required files are missing, ambiguous, mismatched, or appear to mix sources.
+
+## Samplesheet
+
+Use CSV or TSV with unique sample IDs:
+
+```csv
+sample,fastq_1,fastq_2
+UDB001,/path/to/UDB001_R1.fq.gz,/path/to/UDB001_R2.fq.gz
+UDB003,/path/to/UDB003_R1.fq.gz,/path/to/UDB003_R2.fq.gz
+```
+
+Rules:
+
+- `sample` must be non-empty and unique.
+- `fastq_1` and `fastq_2` must both exist.
+- The same FASTQ cannot be assigned twice.
+- This version does not merge lanes automatically. Use one row per final sample.
+
+## Run Locally
+
+From the cloned repository:
+
+```bash
+nextflow run . \
+  --samplesheet ../data/samplesheet.csv \
+  --outdir ../data/results \
+  --reference_dir reference/GRCh38_GENCODE/raw \
+  -profile conda
+```
+
+Useful parameters:
 
 ```bash
 --lib_type A
@@ -69,7 +234,58 @@ Useful params:
 --salmon_cpus 4
 ```
 
-By default the pipeline reuses an existing derived reference if all of these exist:
+## Run From GitHub
+
+After the repository is pushed and tagged:
+
+```bash
+nextflow run Thokas99/simple-nextflow-salmon \
+  -r v0.1.0 \
+  --samplesheet /path/to/samplesheet.csv \
+  --outdir /path/to/results \
+  --reference_dir /path/to/reference/GRCh38_GENCODE/raw \
+  -profile conda
+```
+
+## Outputs
+
+```text
+results/
+├── qc/
+│   ├── fastqc/
+│   └── multiqc/
+├── salmon/
+│   └── <sample_id>/
+├── tximport/
+│   ├── tx2gene.tsv
+│   ├── gene_counts.tsv
+│   ├── gene_abundance.tsv
+│   ├── gene_length.tsv
+│   ├── tximport_object.rds
+│   └── sample_metadata.tsv
+└── summary/
+    ├── salmon_mapping_summary.tsv
+    ├── raw_count_summary.tsv
+    └── gene_count_summary.tsv
+```
+
+Derived reference outputs:
+
+```text
+reference/GRCh38_GENCODE/derived/
+├── gentrome.fa
+├── decoys.txt
+├── annotation.gtf.gz
+├── reference_manifest.tsv
+├── checksums.sha256
+└── salmon_index/
+```
+
+`tximport/gene_counts.tsv` contains unrounded raw estimated counts from `txi$counts` with `countsFromAbundance = "no"`.
+
+## Reference Reuse
+
+By default, the workflow reuses an existing derived reference if all of these exist:
 
 ```text
 reference/GRCh38_GENCODE/derived/gentrome.fa
@@ -78,30 +294,77 @@ reference/GRCh38_GENCODE/derived/annotation.gtf.gz
 reference/GRCh38_GENCODE/derived/salmon_index/info.json
 ```
 
-Use `--rebuild_reference true` to force rebuilding the decoys, gentrome, and Salmon index.
+To force rebuilding:
 
-## Outputs
-
-```text
-../data/results/
-  qc/fastqc/
-  qc/multiqc/
-  salmon/
-  tximport/
-  summary/
-
-reference/GRCh38_GENCODE/derived/
-  gentrome.fa
-  decoys.txt
-  reference_manifest.tsv
-  checksums.sha256
-  salmon_index/
+```bash
+--rebuild_reference true
 ```
 
-`tximport/gene_counts.tsv` contains unrounded raw estimated counts from `txi$counts` with `countsFromAbundance = "no"`.
+This is useful only when the raw GENCODE files change.
 
-## GENCODE ID Handling
+## Important Design Decisions
 
-GENCODE transcript FASTA headers contain extra fields separated by `|`. `salmon index --gencode` trims those headers to transcript IDs that match the GTF `transcript_id` values.
+- CSV/TSV samplesheets are explicit and reproducible; no filename guessing.
+- Sample IDs are unique; no hidden lane merging.
+- GENCODE FASTA headers are handled with `salmon index --gencode`.
+- tximport preserves versioned GENCODE identifiers and checks `quant.sf`/GTF overlap.
+- Decoys are extracted only from genome FASTA headers.
+- Transcript sequences are not treated as decoys.
+- The pipeline is installable by cloning/running with Nextflow; no custom installer script is needed.
 
-The tximport step preserves versioned GENCODE identifiers and fails if the first `quant.sf` does not substantially overlap the GTF-derived `tx2gene.tsv`.
+## Troubleshooting
+
+### Missing Reference Files
+
+If the workflow stops before running processes, check:
+
+```text
+reference/GRCh38_GENCODE/raw/
+```
+
+You need:
+
+```text
+gencode.v50.transcripts.fa.gz
+GRCh38.p14.genome.fa.gz
+gencode.v50.chr_patch_hapl_scaff.annotation.gtf.gz
+```
+
+### Rebuilding the Index
+
+If the Salmon version changes, rebuild:
+
+```bash
+nextflow run . \
+  --samplesheet ../data/samplesheet.csv \
+  --outdir ../data/results \
+  --reference_dir reference/GRCh38_GENCODE/raw \
+  --rebuild_reference true \
+  -profile conda
+```
+
+### Resume a Failed Run
+
+```bash
+nextflow run . \
+  --samplesheet ../data/samplesheet.csv \
+  --outdir ../data/results \
+  --reference_dir reference/GRCh38_GENCODE/raw \
+  -profile conda \
+  -resume
+```
+
+## Version
+
+Current version:
+
+```text
+0.1.0
+```
+
+Release tag:
+
+```bash
+git tag v0.1.0
+git push origin main --tags
+```

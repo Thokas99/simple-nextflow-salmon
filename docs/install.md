@@ -12,14 +12,12 @@ Micromamba or Conda
 Git
 ```
 
-## Environments
+## Environment
 
-The workflow ships three Micromamba/Conda-compatible YAML files:
+The workflow ships one Micromamba/Conda-compatible YAML file:
 
 ```text
-envs/qc.yml
-envs/salmon.yml
-envs/r_tximport.yml
+envs/salmon-rnaseq.yml
 ```
 
 With:
@@ -28,53 +26,51 @@ With:
 -profile conda
 ```
 
-Nextflow creates and caches these environments automatically. You do not need to activate them manually.
+Nextflow creates and caches this environment automatically. You do not need to activate it manually.
 
 Manual creation is also possible:
 
 ```bash
-micromamba env create -f envs/qc.yml
-micromamba env create -f envs/salmon.yml
-micromamba env create -f envs/r_tximport.yml
+micromamba env create -f envs/salmon-rnaseq.yml
+micromamba activate salmon-rnaseq
 ```
 
-The YAML contents are intentionally small:
+Equivalent one-line creation:
+
+```bash
+micromamba create -n salmon-rnaseq \
+  -c conda-forge \
+  -c bioconda \
+  --strict-channel-priority \
+  salmon fastqc multiqc seqkit pigz samtools \
+  r-base r-tidyverse r-data.table r-readr r-jsonlite \
+  bioconductor-tximport bioconductor-rhdf5 bioconductor-biocparallel \
+  -y
+```
+
+The YAML content is:
 
 ```yaml
-# envs/qc.yml
-name: salmon-rnaseq-qc
+name: salmon-rnaseq
 channels:
   - conda-forge
   - bioconda
+channel_priority: strict
 dependencies:
-  - fastqc=0.12.1
-  - multiqc=1.30
-```
-
-```yaml
-# envs/salmon.yml
-name: salmon-rnaseq-salmon
-channels:
-  - conda-forge
-  - bioconda
-dependencies:
-  - salmon=2.3.4
-  - pigz=2.8
-  - seqkit=2.10.0
-```
-
-```yaml
-# envs/r_tximport.yml
-name: salmon-rnaseq-r
-channels:
-  - conda-forge
-  - bioconda
-dependencies:
-  - r-base=4.4
-  - r-data.table=1.15
-  - r-readr=2.1
-  - r-jsonlite=1.8
-  - bioconductor-tximport=1.34
+  - salmon
+  - fastqc
+  - multiqc
+  - seqkit
+  - pigz
+  - samtools
+  - r-base
+  - r-tidyverse
+  - r-data.table
+  - r-readr
+  - r-jsonlite
+  - bioconductor-tximport
+  - bioconductor-rhdf5
+  - bioconductor-biocparallel
 ```
 
 ## Run from GitHub

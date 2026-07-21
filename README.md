@@ -56,9 +56,7 @@ Reference construction is technically independent of FastQC, but this pipeline i
 ├── main.nf
 ├── nextflow.config
 ├── envs/
-│   ├── qc.yml
-│   ├── salmon.yml
-│   └── r_tximport.yml
+│   └── salmon-rnaseq.yml
 ├── modules/
 │   ├── fastqc.nf
 │   ├── multiqc.nf
@@ -97,17 +95,15 @@ micromamba --version
 git --version
 ```
 
-## Install Environments
+## Install Environment
 
-The workflow includes three small Micromamba/Conda YAML files:
+The workflow uses one Micromamba/Conda environment:
 
 ```text
-envs/qc.yml
-envs/salmon.yml
-envs/r_tximport.yml
+envs/salmon-rnaseq.yml
 ```
 
-Recommended usage: let Nextflow create and cache them automatically:
+Recommended usage: let Nextflow create and cache it automatically:
 
 ```bash
 nextflow run . \
@@ -120,48 +116,46 @@ nextflow run . \
 Manual environment creation is optional:
 
 ```bash
-micromamba env create -f envs/qc.yml
-micromamba env create -f envs/salmon.yml
-micromamba env create -f envs/r_tximport.yml
+micromamba env create -f envs/salmon-rnaseq.yml
+micromamba activate salmon-rnaseq
 ```
 
-The environment files are:
+Equivalent one-line creation:
+
+```bash
+micromamba create -n salmon-rnaseq \
+  -c conda-forge \
+  -c bioconda \
+  --strict-channel-priority \
+  salmon fastqc multiqc seqkit pigz samtools \
+  r-base r-tidyverse r-data.table r-readr r-jsonlite \
+  bioconductor-tximport bioconductor-rhdf5 bioconductor-biocparallel \
+  -y
+```
+
+The environment YAML is:
 
 ```yaml
-# envs/qc.yml
-name: salmon-rnaseq-qc
+name: salmon-rnaseq
 channels:
   - conda-forge
   - bioconda
+channel_priority: strict
 dependencies:
-  - fastqc=0.12.1
-  - multiqc=1.30
-```
-
-```yaml
-# envs/salmon.yml
-name: salmon-rnaseq-salmon
-channels:
-  - conda-forge
-  - bioconda
-dependencies:
-  - salmon=2.3.4
-  - pigz=2.8
-  - seqkit=2.10.0
-```
-
-```yaml
-# envs/r_tximport.yml
-name: salmon-rnaseq-r
-channels:
-  - conda-forge
-  - bioconda
-dependencies:
-  - r-base=4.4
-  - r-data.table=1.15
-  - r-readr=2.1
-  - r-jsonlite=1.8
-  - bioconductor-tximport=1.34
+  - salmon
+  - fastqc
+  - multiqc
+  - seqkit
+  - pigz
+  - samtools
+  - r-base
+  - r-tidyverse
+  - r-data.table
+  - r-readr
+  - r-jsonlite
+  - bioconductor-tximport
+  - bioconductor-rhdf5
+  - bioconductor-biocparallel
 ```
 
 ## Reference Files

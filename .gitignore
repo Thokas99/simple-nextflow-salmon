@@ -1,0 +1,19 @@
+.nextflow*
+work/
+results/
+new_results/
+
+.DS_Store
+
+# Keep the workflow small on GitHub. Recreate/download references locally.
+reference/GRCh38_GENCODE/raw/*
+reference/GRCh38_GENCODE/derived/*
+!reference/GRCh38_GENCODE/raw/.gitkeep
+!reference/GRCh38_GENCODE/derived/.gitkeep
+
+# Local data belongs outside the repo.
+data/
+*.fq
+*.fq.gz
+*.fastq
+*.fastq.gz

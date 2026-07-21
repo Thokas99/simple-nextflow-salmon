@@ -55,6 +55,7 @@ nextflow run . \
 ```
 
 For a fresh local setup, see `docs/run_local.md`.
+For running from GitHub on another machine, see `docs/install.md`.
 
 Useful params:
 

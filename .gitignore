@@ -4,6 +4,7 @@ results/
 new_results/
 
 .DS_Store
+.serena/
 
 # Keep the workflow small on GitHub. Recreate/download references locally.
 reference/GRCh38_GENCODE/raw/*

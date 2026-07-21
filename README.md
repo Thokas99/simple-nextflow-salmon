@@ -56,6 +56,7 @@ nextflow run . \
 
 For a fresh local setup, see `docs/run_local.md`.
 For running from GitHub on another machine, see `docs/install.md`.
+The Micromamba/Conda YAMLs are documented in `docs/install.md` and stored under `envs/`.
 
 Useful params:
 

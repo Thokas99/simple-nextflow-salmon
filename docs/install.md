@@ -12,12 +12,69 @@ Micromamba or Conda
 Git
 ```
 
-Nextflow will create the stage-specific environments from:
+## Environments
+
+The workflow ships three Micromamba/Conda-compatible YAML files:
 
 ```text
 envs/qc.yml
 envs/salmon.yml
 envs/r_tximport.yml
+```
+
+With:
+
+```bash
+-profile conda
+```
+
+Nextflow creates and caches these environments automatically. You do not need to activate them manually.
+
+Manual creation is also possible:
+
+```bash
+micromamba env create -f envs/qc.yml
+micromamba env create -f envs/salmon.yml
+micromamba env create -f envs/r_tximport.yml
+```
+
+The YAML contents are intentionally small:
+
+```yaml
+# envs/qc.yml
+name: salmon-rnaseq-qc
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - fastqc=0.12.1
+  - multiqc=1.30
+```
+
+```yaml
+# envs/salmon.yml
+name: salmon-rnaseq-salmon
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - salmon=2.3.4
+  - pigz=2.8
+  - seqkit=2.10.0
+```
+
+```yaml
+# envs/r_tximport.yml
+name: salmon-rnaseq-r
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - r-base=4.4
+  - r-data.table=1.15
+  - r-readr=2.1
+  - r-jsonlite=1.8
+  - bioconductor-tximport=1.34
 ```
 
 ## Run from GitHub

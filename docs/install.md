@@ -131,14 +131,11 @@ Later runs reuse the derived reference automatically unless:
 
 From a cloned repo:
 
-```bash
-python3 scripts/make_samplesheet.py ../data/fastqs -o ../data/samplesheet.csv
-```
-
-Inspect `../data/samplesheet.csv`, then validate inputs:
+Generate the samplesheet and validate inputs:
 
 ```bash
 nextflow run . \
+  --fastq_dir ../data/fastqs \
   --samplesheet ../data/samplesheet.csv \
   --reference_dir reference/GRCh38_GENCODE/raw \
   --validate_only true \

@@ -15,6 +15,8 @@ params.lib_type = 'A'
 params.salmon_k = 31
 params.rebuild_reference = false
 params.validate_only = false
+params.fastq_dir = null
+params.generated_samplesheet = null
 
 def split_row(line, sep) {
     (line.split(java.util.regex.Pattern.quote(sep), -1) as List).collect { it.trim() }
@@ -65,6 +67,49 @@ def parse_samplesheet(path) {
     }
 }
 
+def csv_cell(value) {
+    def text = value.toString()
+    if (text.contains(',') || text.contains('"') || text.contains('\n')) {
+        return '"' + text.replace('"', '""') + '"'
+    }
+    text
+}
+
+def make_samplesheet(fastq_dir, out_path) {
+    def dir = file(fastq_dir, type: 'dir', checkIfExists: true)
+    def fastq_re = ~/(?i)^(.+?)[_.-]R?([12])(?:[_.-]001)?(\.f(?:ast)?q(?:\.gz)?)$/
+    def pairs = [:].withDefault { [:] }
+
+    dir.traverse(type: groovy.io.FileType.FILES) { fastq ->
+        def match = fastq.name =~ fastq_re
+        if (match.matches()) {
+            def sample = match[0][1]
+            def read = match[0][2]
+            if (pairs[sample][read]) {
+                error "Duplicate R${read} FASTQ for sample '${sample}': ${fastq}"
+            }
+            pairs[sample][read] = fastq.toAbsolutePath().toString()
+        }
+    }
+
+    if (!pairs) error "No paired FASTQ filenames found in: ${fastq_dir}"
+
+    def missing = pairs.findAll { sample, reads -> !reads['1'] || !reads['2'] }.keySet().sort()
+    if (missing) error "Missing pair for sample(s): ${missing.join(', ')}"
+
+    def out = new File(out_path.toString())
+    out.parentFile?.mkdirs()
+    out.withWriter { writer ->
+        writer.writeLine('sample,fastq_1,fastq_2')
+        pairs.keySet().sort().each { sample ->
+            writer.writeLine([sample, pairs[sample]['1'], pairs[sample]['2']].collect { csv_cell(it) }.join(','))
+        }
+    }
+
+    log.info "Wrote ${pairs.size()} sample(s) to ${out}"
+    out.toString()
+}
+
 def exactly_one(files, label) {
     if (files.size() == 0) error "Missing ${label} in ${params.reference_dir}\nDownload the matching GENCODE Human ALL files from https://www.gencodegenes.org/human/ into ${params.reference_dir}"
     if (files.size() > 1) error "Ambiguous ${label} in ${params.reference_dir}: ${files*.name.join(', ')}"
@@ -113,14 +158,20 @@ def derived_reference_complete(path) {
 }
 
 workflow {
-    if (!params.samplesheet) error "Provide --samplesheet"
+    if (!params.samplesheet && !params.fastq_dir) error "Provide --samplesheet or --fastq_dir"
 
-    def rows = parse_samplesheet(params.samplesheet)
+    def samplesheet = params.samplesheet
+    if (params.fastq_dir) {
+        samplesheet = params.samplesheet ?: params.generated_samplesheet ?: "${params.outdir}/samplesheet.generated.csv"
+        samplesheet = make_samplesheet(params.fastq_dir, samplesheet)
+    }
+
+    def rows = parse_samplesheet(samplesheet)
     def refs = validate_reference_dir(params.reference_dir)
     def derived = derived_reference(params.reference_dir)
 
     if (params.validate_only) {
-        log.info "Validated ${rows.size()} sample(s) from ${params.samplesheet}"
+        log.info "Validated ${rows.size()} sample(s) from ${samplesheet}"
         log.info "Reference inputs found in ${params.reference_dir}"
         log.info "Inspect the samplesheet, then rerun without --validate_only true to launch the pipeline."
         return
@@ -146,6 +197,6 @@ workflow {
 
     SALMON_QUANT(samples, salmon_index)
     quant_dirs = SALMON_QUANT.out.quant_dirs.map { sample, quant_dir -> quant_dir }
-    TXIMPORT(quant_dirs.collect(), reference_gtf, file(params.samplesheet, checkIfExists: true))
+    TXIMPORT(quant_dirs.collect(), reference_gtf, file(samplesheet, checkIfExists: true))
     RAW_COUNT_SUMMARY(quant_dirs.collect(), TXIMPORT.out.gene_counts)
 }

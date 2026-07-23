@@ -39,13 +39,9 @@ The pipeline checks these before launching workflow processes. If a file is miss
 
 ## 2. Prepare a Samplesheet
 
-Create one automatically from paired FASTQ filenames:
+The pipeline can create one from paired FASTQ filenames during validation.
 
-```bash
-python3 scripts/make_samplesheet.py ../data/fastqs -o ../data/samplesheet.csv
-```
-
-Example:
+Manual example:
 
 ```csv
 sample,fastq_1,fastq_2
@@ -57,10 +53,11 @@ Sample IDs must be unique.
 
 Inspect `../data/samplesheet.csv` before launching the full workflow.
 
-## 3. Validate
+## 3. Generate and Validate
 
 ```bash
 nextflow run . \
+  --fastq_dir ../data/fastqs \
   --samplesheet ../data/samplesheet.csv \
   --reference_dir reference/GRCh38_GENCODE/raw \
   --validate_only true \

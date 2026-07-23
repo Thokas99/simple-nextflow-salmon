@@ -29,18 +29,11 @@ process TXIMPORT {
 
     stub:
     """
-    cat > gene_counts.tsv <<'EOF'
-gene_id	UDB001	UDB003
-ENSG000001.1	10.5	20.25
-EOF
-    cat > gene_abundance.tsv <<'EOF'
-gene_id	UDB001	UDB003
-ENSG000001.1	5.0	9.0
-EOF
-    cat > gene_length.tsv <<'EOF'
-gene_id	UDB001	UDB003
-ENSG000001.1	900	900
-EOF
+    samples=\$(awk -F, 'NR > 1 && !seen[\$1]++ { printf "%s%s", sep, \$1; sep="\\t" }' ${samplesheet})
+    values=\$(awk -F, 'NR > 1 && !seen[\$1]++ { printf "%s10.5", sep; sep="\\t" }' ${samplesheet})
+    printf 'gene_id\t%s\nENSG000001.1\t%s\n' "\$samples" "\$values" > gene_counts.tsv
+    printf 'gene_id\t%s\nENSG000001.1\t%s\n' "\$samples" "\$values" > gene_abundance.tsv
+    printf 'gene_id\t%s\nENSG000001.1\t%s\n' "\$samples" "\$values" > gene_length.tsv
     cat > tx2gene.tsv <<'EOF'
 transcript_id	gene_id
 ENST000001.1	ENSG000001.1
@@ -50,6 +43,6 @@ EOF
     countsFromAbundance	no
 EOF
     touch tximport_object.rds
-    printf 'sample\tfastq_1\tfastq_2\nUDB001\tR1.fastq.gz\tR2.fastq.gz\n' > sample_metadata.tsv
+    awk -F, 'BEGIN { OFS="\\t" } { print \$1, \$2, \$3 }' ${samplesheet} > sample_metadata.tsv
     """
 }

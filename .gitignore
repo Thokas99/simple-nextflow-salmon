@@ -5,6 +5,8 @@ new_results/
 
 .DS_Store
 .serena/
+__pycache__/
+*.pyc
 
 # Keep the workflow small on GitHub. Recreate/download references locally.
 reference/GRCh38_GENCODE/raw/*
@@ -18,4 +20,4 @@ data/
 *.fq.gz
 *.fastq
 *.fastq.gz
-!tests/fixtures/fastqs/*.fastq.gz
+!tests/fixtures/fastqs/*.fastq

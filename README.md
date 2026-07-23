@@ -87,10 +87,14 @@ The workflow accepts one explicit CSV input:
 
 ```csv
 sample,fastq_1,fastq_2
-UDB001,/absolute/path/UDB001_R1.fastq.gz,/absolute/path/UDB001_R2.fastq.gz
+UDB001,/data/UDB001_L001_R1.fastq.gz,/data/UDB001_L001_R2.fastq.gz
+UDB001,/data/UDB001_L002_R1.fastq.gz,/data/UDB001_L002_R2.fastq.gz
+UDB003,/data/UDB003_R1.fastq.gz,/data/UDB003_R2.fastq.gz
 ```
 
-The three columns are required exactly. Sample IDs must contain only letters, numbers, `.`, `_`, or `-`; IDs and FASTQ paths must be unique; R1 and R2 must exist and differ. Relative paths are resolved from the directory where Nextflow was launched.
+The three columns are required exactly and this workflow supports paired-end data. Repeated rows with the same `sample` are ordered technical replicates or sequencing lanes: FastQC runs once per row, while Salmon runs once per biological sample and receives all R1 files and corresponding R2 files directly in row order. tximport therefore contains one column per biological sample. Samples with one row behave as before.
+
+Validation checks safe non-empty sample IDs; non-empty, readable FASTQ files; `.fastq.gz`, `.fq.gz`, `.fastq`, or `.fq` extensions; distinct mates; duplicate rows; reused FASTQs; and basename collisions that could overwrite FastQC reports. Relative paths are resolved from the directory where Nextflow was launched. Empty lines and surrounding whitespace are ignored safely, and practical row-level errors are reported together.
 
 The optional helper scans paired filenames before the workflow is launched:
 
@@ -98,7 +102,18 @@ The optional helper scans paired filenames before the workflow is launched:
 python3 scripts/make_samplesheet.py /absolute/path/to/fastqs -o /absolute/path/to/samplesheet.csv
 ```
 
-One detected pair becomes one sample row. Lane tokens remain in sample IDs, and lanes are never silently merged.
+One detected pair becomes one row. Edit the generated `sample` column to the same biological ID when multiple detected pairs are technical replicates that should be quantified together.
+
+### Validation-only mode
+
+```bash
+nextflow run . \
+  --samplesheet data/samplesheet.csv \
+  --reference_dir reference/GRCh38_GENCODE/raw \
+  --validate_only true
+```
+
+This validates the samplesheet and reference inputs, prints row, biological-sample, FASTQ-pair, and technical-replicate counts, and exits without launching analysis processes.
 
 ## Reference
 
@@ -149,6 +164,7 @@ User inputs and outputs may be absolute or relative to the launch directory. `pr
 | --- | --- |
 | FastQC | `results/qc/fastqc/` |
 | MultiQC | `results/qc/multiqc/multiqc_report.html` |
+| Combined Salmon metrics | `results/qc/salmon_metrics.tsv` |
 | Salmon quantifications | `results/salmon/<sample>/` |
 | Transcript-to-gene map | `results/tximport/tx2gene.tsv` |
 | Estimated gene counts | `results/tximport/gene_counts.tsv` |
@@ -159,12 +175,29 @@ User inputs and outputs may be absolute or relative to the launch directory. `pr
 | Mapping QC | `results/summary/salmon_mapping_summary.tsv` |
 | Estimated-count QC | `results/summary/estimated_count_summary.tsv` |
 | Per-sample gene-count QC | `results/summary/gene_count_summary.tsv` |
+| Execution report | `results/pipeline_info/execution_report.html` |
+| Execution timeline | `results/pipeline_info/execution_timeline.html` |
+| Execution trace | `results/pipeline_info/execution_trace.tsv` |
+| Pipeline DAG | `results/pipeline_info/pipeline_dag.html` |
 
 `gene_counts.tsv` contains unrounded tximport estimated fragment counts with `countsFromAbundance = "no"`. These are estimated counts, not raw integer read counts. Versioned GENCODE transcript and gene identifiers are retained.
 
+`salmon_metrics.tsv` contains one row per biological sample from Salmon's `aux_info/meta_info.json`, including processed and mapped fragments, mapping percentage (0–100), inferred library type, fragment-length statistics, Salmon version, FASTQ-pair count, and quantification directory. Missing optional JSON fields are left empty; missing or malformed JSON fails with the affected sample named. MultiQC continues to include its native Salmon sections.
+
+Nextflow writes its standard report, timeline, trace, and DAG automatically with stable names under `pipeline_info/`. Existing files are overwritten safely on resumed runs. The HTML execution report retains command, Nextflow version, timing, and completion status; the TSV trace retains task/process status and resource metrics supported by the executor.
+
 ## Resume
 
-Use the same command and add `-resume`. Nextflow reuses completed tasks from its work directory; the reference manifest separately controls reuse of the published Salmon index.
+Use the same command and add `-resume`. It is a Nextflow option and uses one hyphen; pipeline parameters such as `--samplesheet` use two. Nextflow reuses completed tasks from its work directory, while the reference manifest separately controls reuse of the published Salmon index.
+
+```bash
+nextflow run . \
+  --samplesheet data/samplesheet.csv \
+  --reference_dir reference/GRCh38_GENCODE/raw \
+  --outdir results \
+  -profile conda \
+  -resume
+```
 
 ## Troubleshooting
 
@@ -173,7 +206,7 @@ Use the same command and add `-resume`. Nextflow reuses completed tasks from its
 | Missing reference file | Check the exact GENCODE release and GRCh38 patch filenames under `--reference_dir` |
 | Incomplete or incompatible derived reference | The known derived artifacts are removed and rebuilt automatically |
 | FASTQ not found | Use an absolute path or a path relative to the launch directory |
-| Unsafe or duplicate sample | Correct the samplesheet; lanes must have distinct sample IDs |
+| Unsafe sample or duplicate row | Correct the reported row; repeated sample IDs are allowed, duplicate rows are not |
 | Conda solve fails | Confirm Conda/Mamba is available and retry after clearing only the failed cached environment |
 
 ## License and Citation

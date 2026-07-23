@@ -20,4 +20,4 @@ nextflow run . \
   -resume
 ```
 
-Remove `--validate_only true` only after inspecting the samplesheet. Add `--rebuild_reference true` when the workflow reports an incompatible derived reference.
+Remove `--validate_only true` only after inspecting the samplesheet. Complete compatible derived references are reused; incomplete or incompatible known artifacts are rebuilt automatically.

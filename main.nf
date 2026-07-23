@@ -75,7 +75,8 @@ def clean_derived(paths) {
 }
 
 def manifest_matches(paths, refs) {
-    if (!paths.drop(1).every { it.exists() } || !paths[4].resolve('info.json').exists()) return false
+    if (!paths[1..3].every { it.isFile() } || !paths[4].isDirectory() ||
+        !paths[4].resolve('info.json').isFile() || !paths[5].isFile()) return false
     def manifest = paths[5].readLines().drop(1).collectEntries { line ->
         def fields = line.split('\t', 2)
         fields.size() == 2 ? [(fields[0]): fields[1]] : [:]
@@ -95,7 +96,6 @@ def manifest_matches(paths, refs) {
 
 workflow {
     params.validate_only = as_bool(params.validate_only, 'validate_only')
-    params.rebuild_reference = as_bool(params.rebuild_reference, 'rebuild_reference')
     if (!params.samplesheet) error 'Provide --samplesheet /absolute/path/to/samplesheet.csv'
 
     def samplesheet = user_file(params.samplesheet, true)
@@ -103,16 +103,17 @@ workflow {
     def refs = reference_inputs(params.reference_dir)
     def derived = derived_paths(params.reference_dir)
 
-    if (params.rebuild_reference) clean_derived(derived)
     def reuse = manifest_matches(derived, refs)
-    if (!reuse && derived.drop(1).any { it.exists() } && !params.rebuild_reference) {
-        error 'Derived reference is incomplete or incompatible. Rerun with --rebuild_reference true.'
-    }
 
     if (params.validate_only) {
         log.info "Validated ${rows.size()} sample(s) and the requested reference inputs."
         log.info reuse ? 'The existing Salmon index is compatible.' : 'The reference and index will be built.'
         return
+    }
+
+    if (!reuse && derived.drop(1).any { it.exists() }) {
+        log.warn "Removing incomplete or incompatible derived reference in ${derived[0]}"
+        clean_derived(derived)
     }
 
     FASTQC(Channel.fromList(rows))

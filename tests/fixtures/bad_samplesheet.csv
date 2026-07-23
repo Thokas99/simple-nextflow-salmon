@@ -1,2 +1,0 @@
-sample,fastq_1,fastq_2
-bad/sample,tests/fixtures/fastqs/UDB001_R1.fastq.gz,tests/fixtures/fastqs/UDB001_R2.fastq.gz

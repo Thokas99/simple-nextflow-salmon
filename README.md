@@ -4,163 +4,135 @@
 [![release](https://img.shields.io/github/v/release/Thokas99/simple-nextflow-salmon)](https://github.com/Thokas99/simple-nextflow-salmon/releases)
 [![license](https://img.shields.io/github/license/Thokas99/simple-nextflow-salmon)](LICENSE)
 
-Small paired-end bulk RNA-seq quantification workflow using FastQC, MultiQC, GENCODE full-decoy Salmon indexing, Salmon quantification, and tximport gene-level summarization.
+A small paired-end bulk RNA-seq workflow for FastQC, MultiQC, GENCODE full-decoy Salmon quantification, and tximport gene-level summarization.
 
-It deliberately does not do trimming, alignment, filtering, normalization, differential expression, or biological interpretation.
+It does not trim, align, filter, normalize, test differential expression, or interpret biology.
 
 ## Quick Start
 
-```bash
-git clone https://github.com/Thokas99/simple-nextflow-salmon.git
-cd simple-nextflow-salmon
-```
-
-Put pinned GENCODE files under `reference/GRCh38_GENCODE/raw/`, then generate and validate a samplesheet:
+Local clone:
 
 ```bash
+python3 scripts/make_samplesheet.py \
+  /absolute/path/to/fastqs \
+  -o /absolute/path/to/samplesheet.csv
+
 nextflow run . \
-  --fastq_dir /path/to/fastqs \
-  --samplesheet samplesheet.csv \
-  --validate_only true \
-  -profile conda
+  --samplesheet /absolute/path/to/samplesheet.csv \
+  --reference_dir /absolute/path/to/reference/GRCh38_GENCODE/raw \
+  --outdir /absolute/path/to/results \
+  -profile conda \
+  -resume
 ```
 
-Inspect `samplesheet.csv`, then run:
-
-```bash
-nextflow run . \
-  --samplesheet samplesheet.csv \
-  --outdir results \
-  -profile conda
-```
-
-From GitHub after the v0.2.0 release tag exists:
+GitHub release:
 
 ```bash
 nextflow run Thokas99/simple-nextflow-salmon \
-  -r v0.2.0 \
-  --samplesheet /local/path/samplesheet.csv \
-  --reference_dir /local/path/reference/GRCh38_GENCODE/raw \
-  --outdir /local/path/results \
-  -profile conda
+  -r <RELEASE_TAG> \
+  --samplesheet /absolute/path/to/samplesheet.csv \
+  --reference_dir /absolute/path/to/reference/GRCh38_GENCODE/raw \
+  --outdir /absolute/path/to/results \
+  -profile conda \
+  -resume
 ```
 
-Nextflow downloads the pipeline source from GitHub. FASTQs, samplesheets, references, and outputs remain local to the execution machine.
+Nextflow downloads the workflow code from GitHub, while the FASTQs, reference files and results remain on the machine where the command is launched. Create a release tag only after the simplified workflow is merged and validated.
 
 ## Workflow
 
 ```mermaid
 flowchart LR
-  A[Samplesheet / FASTQs] --> B[FastQC]
-  A --> C[Salmon quant]
-  R[GENCODE transcripts + genome + GTF] --> D[Full-decoy reference]
-  D --> E[Salmon index]
-  E --> C
-  C --> F[tximport gene estimates]
-  F --> G[Estimated-count QC summaries]
-  B --> H[MultiQC]
-  C --> H
-  E --> I[Reference manifest]
-  I --> J[Run provenance]
+  S[Samplesheet] --> F[FastQC]
+  S --> Q[Salmon quantification]
+  R[GENCODE FASTA and GTF] --> D[Full-decoy reference]
+  D --> I[Salmon index]
+  I --> Q
+  Q --> T[tximport]
+  Q --> C[Mapping and estimated-count QC]
+  T --> C
+  F --> M[MultiQC]
+  Q --> M
 ```
 
-Reference building and FastQC start independently. Salmon waits only for reads and a compatible index.
+FastQC and reference preparation can start independently. MultiQC runs after FastQC and Salmon so its report includes both.
 
 ## Requirements
 
 - Nextflow `>=24.10.0`
 - Java 17+
-- One execution backend:
-  - `-profile conda` with Micromamba/Mamba/Conda
-  - `-profile docker`
-  - `-profile apptainer`
+- Conda, Mamba, or Micromamba available to Nextflow
 
-Conda dependencies are pinned in `envs/salmon-rnaseq.yml`. Container profiles use versioned BioContainers images where available; conda remains the most portable HPC profile.
+Conda is the only supported execution backend. Nextflow creates and caches the pinned environment from `envs/salmon-rnaseq.yml`; users do not activate it manually.
 
-## Reference Inputs
+## Samplesheet
 
-Defaults are pinned for reproducibility, not because they are eternally current:
+The workflow accepts one explicit CSV input:
 
-| Parameter | Default |
-| --- | --- |
-| `--gencode_release` | `50` |
-| `--genome_patch` | `14` |
-
-Expected default files:
-
-```text
-reference/GRCh38_GENCODE/raw/gencode.v50.transcripts.fa.gz
-reference/GRCh38_GENCODE/raw/GRCh38.p14.genome.fa.gz
-reference/GRCh38_GENCODE/raw/gencode.v50.chr_patch_hapl_scaff.annotation.gtf.gz
+```csv
+sample,fastq_1,fastq_2
+UDB001,/absolute/path/UDB001_R1.fastq.gz,/absolute/path/UDB001_R2.fastq.gz
 ```
 
-Download the matching GENCODE Human `ALL` files from:
+The three columns are required exactly. Sample IDs must contain only letters, numbers, `.`, `_`, or `-`; IDs and FASTQ paths must be unique; R1 and R2 must exist and differ. Relative paths are resolved from the directory where Nextflow was launched.
 
-```text
-https://www.gencodegenes.org/human/
+The optional helper scans paired filenames before the workflow is launched:
+
+```bash
+python3 scripts/make_samplesheet.py /absolute/path/to/fastqs -o /absolute/path/to/samplesheet.csv
 ```
 
-## Reference Cache
+One detected pair becomes one sample row. Lane tokens remain in sample IDs, and lanes are never silently merged.
 
-The derived reference is reused only when `reference_manifest.json` proves compatibility. The manifest records raw-input SHA256 checksums, GENCODE release, GRCh38 patch, Salmon version, k-mer size, index options, and decoy-generation method.
+## Reference
 
-If an existing cache is incompatible, the workflow fails with an instruction to rebuild:
+The default reference inputs are:
+
+```text
+GRCh38_GENCODE/
+└── raw/
+    ├── gencode.v50.transcripts.fa.gz
+    ├── GRCh38.p14.genome.fa.gz
+    └── gencode.v50.chr_patch_hapl_scaff.annotation.gtf.gz
+```
+
+They produce:
+
+```text
+GRCh38_GENCODE/
+└── derived/
+    ├── gentrome.fa
+    ├── decoys.txt
+    ├── annotation.gtf.gz
+    ├── salmon_index/
+    └── reference_manifest.tsv
+```
+
+The transcript and genome FASTAs are decompressed, checked for duplicate identifiers, and concatenated in that order. Genome identifiers become decoys, every decoy is checked against the gentrome, and Salmon builds the index with `--gencode`.
+
+The small manifest is written only when the index is built. Reuse requires the derived files plus matching GENCODE release, genome patch, filenames, Salmon version, k-mer size, and `--gencode` option. A mismatch stops with:
 
 ```bash
 --rebuild_reference true
 ```
 
-The rebuild removes only the known derived files/index under the selected reference directory.
-
-## Samplesheet
-
-Required CSV/TSV columns:
-
-```csv
-sample,fastq_1,fastq_2
-UDB001,/abs/path/UDB001_R1.fastq.gz,/abs/path/UDB001_R2.fastq.gz
-```
-
-Rules:
-
-- One row is one final biological sample.
-- Sample IDs must be safe path names: letters, numbers, `.`, `_`, `-`.
-- FASTQ paths may be absolute or relative to the run directory.
-- Lanes are not silently merged.
-- Extra columns are rejected.
-
-Automatic detection supports names such as:
-
-```text
-UDB001_R1.fastq.gz
-UDB001_R2.fastq.gz
-UDB001_L001_R1.fq.gz
-UDB001_L001_R2.fq.gz
-```
-
-The lane token remains part of the sample ID. Manual helper:
-
-```bash
-python3 scripts/make_samplesheet.py /path/to/fastqs -o samplesheet.csv
-```
+That option removes only the known files under the selected `derived/` directory. It does not checksum multi-gigabyte references on every launch.
 
 ## Parameters
 
 | Parameter | Default | Description |
 | --- | --- | --- |
-| `--samplesheet` | none | CSV/TSV input table |
-| `--fastq_dir` | none | Generate samplesheet from paired FASTQs |
-| `--generated_samplesheet` | none | Output path when `--fastq_dir` is used without `--samplesheet` |
-| `--outdir` | `results` | Output directory |
-| `--reference_dir` | `reference/GRCh38_GENCODE/raw` | Raw reference directory |
-| `--gencode_release` | `50` | Expected GENCODE release |
-| `--genome_patch` | `14` | Expected GRCh38 patch |
-| `--lib_type` | `A` | Salmon library type |
+| `--samplesheet` | required | CSV with `sample,fastq_1,fastq_2` |
+| `--reference_dir` | `reference/GRCh38_GENCODE/raw` | Raw GENCODE reference directory |
+| `--outdir` | `results` | Results directory |
+| `--gencode_release` | `50` | GENCODE release |
+| `--genome_patch` | `14` | GRCh38 patch |
 | `--salmon_k` | `31` | Salmon index k-mer size |
-| `--validate_only` | `false` | Validate and stop |
-| `--rebuild_reference` | `false` | Force reference/index rebuild |
+| `--lib_type` | `A` | Salmon library type |
+| `--rebuild_reference` | `false` | Rebuild known derived artifacts |
+| `--validate_only` | `false` | Validate inputs without running processes |
 
-Use `nextflow run . --help` for a concise parameter overview.
+User inputs and outputs may be absolute or relative to the launch directory. `projectDir` is used only for workflow modules, scripts, and the Conda YAML bundled with the repository.
 
 ## Outputs
 
@@ -169,70 +141,32 @@ Use `nextflow run . --help` for a concise parameter overview.
 | FastQC | `results/qc/fastqc/` |
 | MultiQC | `results/qc/multiqc/multiqc_report.html` |
 | Salmon quantifications | `results/salmon/<sample>/` |
-| tximport estimated counts | `results/tximport/gene_counts.tsv` |
-| tximport abundance | `results/tximport/gene_abundance.tsv` |
+| Transcript-to-gene map | `results/tximport/tx2gene.tsv` |
+| Estimated gene counts | `results/tximport/gene_counts.tsv` |
+| Gene abundance | `results/tximport/gene_abundance.tsv` |
+| Gene effective length | `results/tximport/gene_length.tsv` |
+| tximport object | `results/tximport/tximport_object.rds` |
+| Sample metadata | `results/tximport/sample_metadata.tsv` |
+| Mapping QC | `results/summary/salmon_mapping_summary.tsv` |
 | Estimated-count QC | `results/summary/estimated_count_summary.tsv` |
-| Salmon mapping QC | `results/summary/salmon_mapping_summary.tsv` |
-| Software versions | `results/pipeline_info/software_versions.yml` |
-| Run provenance | `results/pipeline_info/run_provenance.json` |
-| Nextflow reports | `results/pipeline_info/` |
+| Per-sample gene-count QC | `results/summary/gene_count_summary.tsv` |
 
-`gene_counts.tsv` contains unrounded tximport estimated fragment counts with `countsFromAbundance = "no"`. The workflow does not perform filtering, library-size normalization, or differential expression.
-
-## Profiles
-
-```bash
-nextflow run . --samplesheet samplesheet.csv -profile conda
-nextflow run . --samplesheet samplesheet.csv -profile docker
-nextflow run . --samplesheet samplesheet.csv -profile apptainer
-```
-
-Typical HPC use is `-profile conda` or `-profile apptainer`, depending on site policy.
+`gene_counts.tsv` contains unrounded tximport estimated fragment counts with `countsFromAbundance = "no"`. These are estimated counts, not raw integer read counts. Versioned GENCODE transcript and gene identifiers are retained.
 
 ## Resume
 
-```bash
-nextflow run . \
-  --samplesheet samplesheet.csv \
-  --outdir results \
-  -profile conda \
-  -resume
-```
-
-## Changes in v0.2.0
-
-- Version metadata updated from stale `0.1.0` references to `0.2.0`.
-- Reference reuse now requires a compatibility manifest, not just file existence.
-- `--gencode_release` and `--genome_patch` are explicit reproducibility parameters.
-- FastQC/MultiQC no longer block reference construction.
-- MultiQC now runs at the end and includes FastQC plus Salmon outputs.
-- `raw_count_summary.tsv` was renamed to `estimated_count_summary.tsv`.
-- Added software-version and run-provenance outputs.
-- Added CI, tests, MIT license, and citation metadata.
+Use the same command and add `-resume`. Nextflow reuses completed tasks from its work directory; the reference manifest separately controls reuse of the published Salmon index.
 
 ## Troubleshooting
 
-| Problem | Fix |
+| Problem | Resolution |
 | --- | --- |
-| Incompatible derived reference | Rerun with `--rebuild_reference true` after reviewing the selected raw reference files |
-| Missing GENCODE file | Download the matching release/patch `ALL` file into `--reference_dir` |
-| Unsafe sample ID | Use only letters, numbers, `.`, `_`, `-` |
-| Relative FASTQ path fails from GitHub run | Use absolute local paths or paths relative to the launch directory |
-| Docker/Apptainer image unavailable at your site | Use `-profile conda` or mirror the listed BioContainers images |
+| Missing reference file | Check the exact GENCODE release and GRCh38 patch filenames under `--reference_dir` |
+| Incompatible derived reference | Review the selected raw files, then use `--rebuild_reference true` |
+| FASTQ not found | Use an absolute path or a path relative to the launch directory |
+| Unsafe or duplicate sample | Correct the samplesheet; lanes must have distinct sample IDs |
+| Conda solve fails | Confirm Conda/Mamba is available and retry after clearing only the failed cached environment |
 
-## Citation
+## License and Citation
 
-Please cite the tools used by this workflow:
-
-- Nextflow
-- Salmon
-- tximport
-- FastQC
-- MultiQC
-- GENCODE
-
-Also see `CITATION.cff`.
-
-## Release
-
-Do not create the `v0.2.0` tag until the upgrade PR is reviewed and merged.
+MIT licensed. Cite Nextflow, Salmon, tximport, FastQC, MultiQC, and the GENCODE reference used in the analysis. Repository metadata is in `CITATION.cff`.

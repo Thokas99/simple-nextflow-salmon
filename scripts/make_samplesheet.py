@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import json
 import re
 import sys
 from pathlib import Path
@@ -53,7 +52,6 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Create sample,fastq_1,fastq_2 CSV from paired FASTQ files.")
     parser.add_argument("fastq_dir", type=Path, help="Directory containing FASTQ files")
     parser.add_argument("-o", "--out", type=Path, default=Path("samplesheet.csv"), help="Output CSV path")
-    parser.add_argument("--json", action="store_true", help="Print machine-readable summary")
     args = parser.parse_args()
 
     if not args.fastq_dir.is_dir():
@@ -69,11 +67,8 @@ def main() -> int:
         writer.writeheader()
         writer.writerows(rows)
 
-    if args.json:
-        print(json.dumps({"samplesheet": str(args.out.resolve()), "samples": len(rows)}))
-    else:
-        print(f"Wrote {len(rows)} sample(s) to {args.out}")
-        print("Inspect this file before running the full pipeline.")
+    print(f"Wrote {len(rows)} sample(s) to {args.out}")
+    print("Inspect this file before running the full pipeline.")
     return 0
 
 

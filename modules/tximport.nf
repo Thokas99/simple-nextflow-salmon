@@ -12,9 +12,11 @@ process TXIMPORT {
     output:
     path "gene_counts.tsv", emit: gene_counts
     path "gene_abundance.tsv", emit: gene_abundance
+    path "gene_length.tsv", emit: gene_length
     path "tx2gene.tsv", emit: tx2gene
     path "tximport_summary.tsv", emit: summary
     path "tximport_object.rds", emit: tximport_object
+    path "sample_metadata.tsv", emit: sample_metadata
 
     script:
     """
@@ -35,14 +37,19 @@ EOF
 gene_id	UDB001	UDB003
 ENSG000001.1	5.0	9.0
 EOF
+    cat > gene_length.tsv <<'EOF'
+gene_id	UDB001	UDB003
+ENSG000001.1	900	900
+EOF
     cat > tx2gene.tsv <<'EOF'
 transcript_id	gene_id
 ENST000001.1	ENSG000001.1
 EOF
     cat > tximport_summary.tsv <<'EOF'
-metric	value
-countsFromAbundance	no
+    metric	value
+    countsFromAbundance	no
 EOF
     touch tximport_object.rds
+    printf 'sample\tfastq_1\tfastq_2\nUDB001\tR1.fastq.gz\tR2.fastq.gz\n' > sample_metadata.tsv
     """
 }

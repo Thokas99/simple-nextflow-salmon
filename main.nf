@@ -90,6 +90,19 @@ def run_json_command(List command) {
     new groovy.json.JsonSlurper().parseText(stdout.toString())
 }
 
+def resolve_launch_path(path) {
+    if (!path) return null
+    def p = file(path.toString())
+    p.isAbsolute() ? p : file("${launchDir}/${path}")
+}
+
+def resolve_input_path(path) {
+    def p = resolve_launch_path(path)
+    if (p?.exists()) return p
+    def project_path = file("${projectDir}/${path}")
+    project_path.exists() ? project_path : p
+}
+
 def make_samplesheet(fastq_dir, out_path) {
     def command = ['python3', "${projectDir}/scripts/make_samplesheet.py", fastq_dir.toString(), '-o', out_path.toString(), '--json']
     def result = run_json_command(command)
@@ -183,11 +196,17 @@ workflow {
         return
     }
 
+    params.outdir = resolve_launch_path(params.outdir)
+    if (params.samplesheet) params.samplesheet = resolve_input_path(params.samplesheet)
+    if (params.fastq_dir) params.fastq_dir = resolve_input_path(params.fastq_dir)
+    if (params.generated_samplesheet) params.generated_samplesheet = resolve_launch_path(params.generated_samplesheet)
+    params.reference_dir = resolve_input_path(params.reference_dir)
+
     validate_common_params()
 
-    def samplesheet = params.samplesheet
+    def samplesheet = resolve_launch_path(params.samplesheet)
     if (params.fastq_dir) {
-        samplesheet = params.samplesheet ?: params.generated_samplesheet ?: "${params.outdir}/samplesheet.generated.csv"
+        samplesheet = resolve_launch_path(params.samplesheet ?: params.generated_samplesheet ?: "${params.outdir}/samplesheet.generated.csv")
         samplesheet = make_samplesheet(params.fastq_dir, samplesheet)
     }
 

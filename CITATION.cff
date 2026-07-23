@@ -1,0 +1,8 @@
+cff-version: 1.2.0
+message: "If you use this workflow, please cite the software it orchestrates and this repository."
+title: "simple-nextflow-salmon"
+version: "0.2.0"
+authors:
+  - name: "Thokas99"
+repository-code: "https://github.com/Thokas99/simple-nextflow-salmon"
+license: "MIT"

@@ -1,0 +1,38 @@
+process ESTIMATED_COUNT_SUMMARY {
+    publishDir "${params.outdir}/summary", mode: 'copy', overwrite: true
+
+    cpus { params.summary_cpus }
+    memory { params.summary_memory }
+
+    input:
+    path quant_dirs
+    path gene_counts
+    path samplesheet
+
+    output:
+    path "estimated_count_summary.tsv", emit: estimated_count_summary
+    path "salmon_mapping_summary.tsv", emit: salmon_mapping_summary
+
+    script:
+    """
+    Rscript ${projectDir}/scripts/estimated_count_summary.R \\
+      --quant_dirs ${quant_dirs.join(' ')} \\
+      --gene_counts ${gene_counts} \\
+      --samplesheet ${samplesheet} \\
+      --outdir .
+    """
+
+    stub:
+    """
+    cat > estimated_count_summary.tsv <<'EOF'
+metric	value
+genes	1
+samples	2
+EOF
+    cat > salmon_mapping_summary.tsv <<'EOF'
+sample	num_processed	num_mapped	percent_mapped
+UDB001	1000	800	80
+UDB003	1000	810	81
+EOF
+    """
+}

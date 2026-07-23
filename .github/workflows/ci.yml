@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - 'agent/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: nf-core/setup-nextflow@v2
+        with:
+          version: '26.04.6'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python test dependencies
+        run: python -m pip install pytest pyyaml
+
+      - name: Python tests
+        run: pytest -q
+
+      - name: Parse JSON and YAML
+        run: |
+          python -m json.tool nextflow_schema.json >/dev/null
+          python - <<'PY'
+          import yaml
+          yaml.safe_load(open('envs/salmon-rnaseq.yml'))
+          yaml.safe_load(open('.github/workflows/ci.yml'))
+          PY
+
+      - name: Nextflow config
+        run: nextflow config -profile test
+
+      - name: Validate inputs
+        run: nextflow run . -profile test --validate_only true
+
+      - name: Malformed samplesheet fails
+        run: |
+          ! nextflow run . -profile test --samplesheet tests/fixtures/bad_samplesheet.csv --validate_only true
+
+      - name: Mismatched reference release fails
+        run: |
+          ! nextflow run . -profile test --gencode_release 51 --samplesheet tests/fixtures/mismatched_reference_samplesheet.csv --validate_only true
+
+      - name: Complete stub run
+        run: nextflow run . -profile test -stub-run --rebuild_reference true
+
+      - name: Check stub output structure
+        run: |
+          test -s test_results/tximport/gene_counts.tsv
+          test -s test_results/summary/estimated_count_summary.tsv
+          test -s test_results/summary/salmon_mapping_summary.tsv
+          test -s test_results/qc/multiqc/multiqc_report.html
+          test -s test_results/pipeline_info/software_versions.yml
+          test -s tests/fixtures/reference/derived/reference_manifest.json
+
+      - name: Reference manifest reuse validation
+        run: nextflow run . -profile test --validate_only true
+
+      - name: Diff whitespace
+        run: git diff --check

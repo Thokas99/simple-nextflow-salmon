@@ -1,23 +1,33 @@
 process MULTIQC {
-    publishDir "${params.outdir}/qc/multiqc", mode: 'copy'
-    cpus { params.multiqc_cpus ?: 1 }
-    memory { params.multiqc_memory ?: '2 GB' }
+    publishDir "${params.outdir}/qc/multiqc", mode: 'copy', overwrite: true
+
+    cpus { params.multiqc_cpus }
+    memory { params.multiqc_memory }
 
     input:
-    path fastqc_reports
+    path inputs
 
     output:
-    path "multiqc/multiqc_report.html", emit: report
-    path "multiqc/multiqc_data", emit: data
+    path "multiqc_report.html", emit: report
+    path "multiqc_data", emit: data
 
     script:
     """
-    multiqc . -o multiqc
+    mkdir -p multiqc_inputs
+    cp -r ${inputs.join(' ')} multiqc_inputs/
+    cat > multiqc_config.yml <<'EOF'
+title: "simple-nextflow-salmon report"
+module_order:
+  - fastqc
+  - salmon
+EOF
+    multiqc multiqc_inputs --config multiqc_config.yml --outdir . --filename multiqc_report.html --force
     """
 
     stub:
     """
-    mkdir -p multiqc/multiqc_data
-    touch multiqc/multiqc_report.html multiqc/multiqc_data/multiqc_general_stats.txt
+    mkdir -p multiqc_data
+    echo '<html><body>stub MultiQC</body></html>' > multiqc_report.html
+    echo '{}' > multiqc_data/multiqc_data.json
     """
 }

@@ -6,159 +6,184 @@ include { BUILD_FULL_DECOY_REFERENCE } from './modules/build_full_decoy_referenc
 include { SALMON_INDEX } from './modules/salmon_index'
 include { SALMON_QUANT } from './modules/salmon_quant'
 include { TXIMPORT } from './modules/tximport'
-include { RAW_COUNT_SUMMARY } from './modules/raw_count_summary'
+include { ESTIMATED_COUNT_SUMMARY } from './modules/estimated_count_summary'
+include { SOFTWARE_VERSIONS } from './modules/software_versions'
 
-params.samplesheet = null
-params.outdir = 'results'
-params.reference_dir = 'reference/GRCh38_GENCODE/raw'
-params.lib_type = 'A'
-params.salmon_k = 31
-params.rebuild_reference = false
-params.validate_only = false
-params.fastq_dir = null
-params.generated_samplesheet = null
+def help_text() {
+    """
+simple-nextflow-salmon ${params.pipeline_version}
 
-def split_row(line, sep) {
-    (line.split(java.util.regex.Pattern.quote(sep), -1) as List).collect { it.trim() }
+Required input:
+  --samplesheet FILE              CSV/TSV with sample,fastq_1,fastq_2
+  --fastq_dir DIR                 Optional: generate a samplesheet from paired FASTQs
+
+Common parameters:
+  --outdir DIR                    Output directory [${params.outdir}]
+  --reference_dir DIR             Raw GENCODE reference directory [${params.reference_dir}]
+  --gencode_release INT           Pinned GENCODE release [${params.gencode_release}]
+  --genome_patch INT              Pinned GRCh38 patch [${params.genome_patch}]
+  --lib_type STR                  Salmon library type [${params.lib_type}]
+  --salmon_k INT                  Salmon index k-mer size [${params.salmon_k}]
+  --validate_only true            Validate inputs and stop before processes
+  --rebuild_reference true        Force a clean rebuild of derived reference artifacts
+
+Examples:
+  nextflow run . --fastq_dir fastqs --samplesheet samplesheet.csv --validate_only true -profile conda
+  nextflow run . --samplesheet samplesheet.csv --outdir results -profile conda
+"""
 }
 
-def parse_samplesheet(path) {
-    def sheet = file(path, checkIfExists: true)
-    def lines = sheet.text.readLines()
-        .collect { it.replaceFirst(/\r$/, '') }
-        .findAll { it.trim() && !it.trim().startsWith('#') }
+def as_bool(value, name) {
+    if (value instanceof Boolean) return value
+    def text = value.toString().toLowerCase()
+    if (text in ['true', '1', 'yes']) return true
+    if (text in ['false', '0', 'no']) return false
+    error "Parameter --${name} must be true or false, got: ${value}"
+}
 
-    if (!lines) error "Samplesheet is empty: ${path}"
+def positive_int(value, name) {
+    if (!(value.toString() ==~ /^\d+$/) || value.toInteger() < 1) {
+        error "Parameter --${name} must be a positive integer, got: ${value}"
+    }
+    value.toInteger()
+}
 
-    def comma_header = split_row(lines[0], ',')
-    def tab_header = split_row(lines[0], '\t')
-    def comma_ok = ['sample', 'fastq_1', 'fastq_2'].every { comma_header.contains(it) }
-    def tab_ok = ['sample', 'fastq_1', 'fastq_2'].every { tab_header.contains(it) }
-    if (comma_ok && tab_ok) error "Samplesheet delimiter is ambiguous: ${path}"
-    if (!comma_ok && !tab_ok) error "Samplesheet must be CSV or TSV with columns: sample, fastq_1, fastq_2"
-
-    def sep = comma_ok ? ',' : '\t'
-    def header = split_row(lines[0], sep)
-    if (header.any { it == '' }) error "Samplesheet has empty header columns: ${path}"
-
-    def col = [:]
-    header.eachWithIndex { name, i -> col[name] = i }
-
-    def seen_samples = [] as Set
-    def seen_fastqs = [] as Set
-    lines.drop(1).collect { line ->
-        def row = split_row(line, sep)
-        def sample = row[col.sample]
-        def r1 = row[col.fastq_1]
-        def r2 = row[col.fastq_2]
-
-        if (!sample) error "Samplesheet row has empty sample ID: ${line}"
-        if (seen_samples.contains(sample)) error "Duplicate sample ID '${sample}'. Keep sample IDs unique in this workflow."
-        if (!r1 || !r2) error "Sample '${sample}' must have both fastq_1 and fastq_2"
-        if (r1 == r2) error "Sample '${sample}' has identical fastq_1 and fastq_2"
-        [r1, r2].each {
-            if (seen_fastqs.contains(it)) error "FASTQ assigned more than once: ${it}"
-            if (!file(it).exists()) error "FASTQ does not exist: ${it}"
-            seen_fastqs << it
-        }
-        seen_samples << sample
-
-        tuple(sample, file(r1), file(r2))
+def validate_memory(value, name) {
+    if (!(value.toString() ==~ /(?i)^\d+(\.\d+)?\s*(B|KB|MB|GB|TB)$/)) {
+        error "Parameter --${name} must be a Nextflow memory string such as '4 GB', got: ${value}"
     }
 }
 
-def csv_cell(value) {
-    def text = value.toString()
-    if (text.contains(',') || text.contains('"') || text.contains('\n')) {
-        return '"' + text.replace('"', '""') + '"'
+def validate_common_params() {
+    params.validate_only = as_bool(params.validate_only, 'validate_only')
+    params.rebuild_reference = as_bool(params.rebuild_reference, 'rebuild_reference')
+
+    params.gencode_release = positive_int(params.gencode_release, 'gencode_release')
+    params.genome_patch = positive_int(params.genome_patch, 'genome_patch')
+
+    params.salmon_k = positive_int(params.salmon_k, 'salmon_k')
+    if (params.salmon_k < 19 || params.salmon_k > 31 || params.salmon_k % 2 == 0) {
+        error "Parameter --salmon_k must be an odd integer between 19 and 31, got: ${params.salmon_k}"
     }
-    text
+
+    if (!params.lib_type?.toString()?.trim()) error "Parameter --lib_type cannot be empty"
+    if (!(params.lib_type.toString() ==~ /^[A-Za-z]+$/)) error "Parameter --lib_type has invalid Salmon library-type syntax: ${params.lib_type}"
+
+    ['fastqc', 'reference', 'index', 'salmon', 'tximport', 'summary', 'multiqc', 'versions'].each { key ->
+        params["${key}_cpus"] = positive_int(params["${key}_cpus"], "${key}_cpus")
+        validate_memory(params["${key}_memory"], "${key}_memory")
+    }
+
+    if (!params.samplesheet && !params.fastq_dir) error "Provide --samplesheet or --fastq_dir"
+    if (!params.outdir?.toString()?.trim()) error "Parameter --outdir cannot be empty"
+    new File(params.outdir.toString()).mkdirs()
+    if (!new File(params.outdir.toString()).isDirectory()) error "Output directory is not usable: ${params.outdir}"
+}
+
+def run_json_command(List command) {
+    def proc = command.execute(null, new File(projectDir.toString()))
+    def stdout = new StringBuffer()
+    def stderr = new StringBuffer()
+    proc.consumeProcessOutput(stdout, stderr)
+    def code = proc.waitFor()
+    if (code != 0) error stderr.toString().trim()
+    new groovy.json.JsonSlurper().parseText(stdout.toString())
 }
 
 def make_samplesheet(fastq_dir, out_path) {
-    def dir = file(fastq_dir, type: 'dir', checkIfExists: true)
-    def fastq_re = ~/(?i)^(.+?)[_.-]R?([12])(?:[_.-]001)?(\.f(?:ast)?q(?:\.gz)?)$/
-    def pairs = [:].withDefault { [:] }
+    def command = ['python3', "${projectDir}/scripts/make_samplesheet.py", fastq_dir.toString(), '-o', out_path.toString(), '--json']
+    def result = run_json_command(command)
+    log.info "Wrote ${result.samples} sample(s) to ${result.samplesheet}"
+    result.samplesheet.toString()
+}
 
-    dir.traverse(type: groovy.io.FileType.FILES) { fastq ->
-        def match = fastq.name =~ fastq_re
-        if (match.matches()) {
-            def sample = match[0][1]
-            def read = match[0][2]
-            if (pairs[sample][read]) {
-                error "Duplicate R${read} FASTQ for sample '${sample}': ${fastq}"
-            }
-            pairs[sample][read] = fastq.toAbsolutePath().toString()
-        }
-    }
+def parse_samplesheet(path) {
+    def command = ['python3', "${projectDir}/scripts/validate_samplesheet.py", path.toString(), '--json']
+    def result = run_json_command(command)
+    result.rows.collect { row -> tuple(row.sample.toString(), file(row.fastq_1.toString(), checkIfExists: true), file(row.fastq_2.toString(), checkIfExists: true)) }
+}
 
-    if (!pairs) error "No paired FASTQ filenames found in: ${fastq_dir}"
-
-    def missing = pairs.findAll { sample, reads -> !reads['1'] || !reads['2'] }.keySet().sort()
-    if (missing) error "Missing pair for sample(s): ${missing.join(', ')}"
-
-    def out = new File(out_path.toString())
-    out.parentFile?.mkdirs()
-    out.withWriter { writer ->
-        writer.writeLine('sample,fastq_1,fastq_2')
-        pairs.keySet().sort().each { sample ->
-            writer.writeLine([sample, pairs[sample]['1'], pairs[sample]['2']].collect { csv_cell(it) }.join(','))
-        }
-    }
-
-    log.info "Wrote ${pairs.size()} sample(s) to ${out}"
-    out.toString()
+def sha256_file(path) {
+    def proc = ['sha256sum', path.toString()].execute()
+    def stdout = new StringBuffer()
+    def stderr = new StringBuffer()
+    proc.consumeProcessOutput(stdout, stderr)
+    def code = proc.waitFor()
+    if (code != 0) error "Could not calculate SHA256 for ${path}: ${stderr.toString().trim()}"
+    stdout.toString().trim().split(/\s+/)[0]
 }
 
 def exactly_one(files, label) {
-    if (files.size() == 0) error "Missing ${label} in ${params.reference_dir}\nDownload the matching GENCODE Human ALL files from https://www.gencodegenes.org/human/ into ${params.reference_dir}"
+    if (files.size() == 0) error "Missing ${label} in ${params.reference_dir}"
     if (files.size() > 1) error "Ambiguous ${label} in ${params.reference_dir}: ${files*.name.join(', ')}"
     files[0]
 }
 
 def validate_reference_dir(path) {
-    def current_gencode_release = '50'
-    def current_grch38_patch = '14'
     def ref_dir = file(path, type: 'dir', checkIfExists: true)
     def files = ref_dir.listFiles().findAll { it.isFile() }
-    def names = files*.name
+    def release = params.gencode_release.toString()
+    def patch = params.genome_patch.toString()
 
-    def foreign = names.findAll { it ==~ /(?i).*(refseq|ucsc|ensembl).*/ }
-    if (foreign) error "Reference directory appears to mix non-GENCODE sources: ${foreign.join(', ')}"
+    def tx_re = "gencode\\.v${release}\\.transcripts\\.fa\\.gz"
+    def gtf_re = "gencode\\.v${release}\\..*annotation\\.gtf\\.gz"
+    def genome_re = "GRCh38\\.p${patch}\\.genome\\.fa\\.gz"
 
-    def tx = exactly_one(files.findAll { it.name ==~ /gencode\.v\d+\.transcripts\.fa\.gz/ }, 'GENCODE comprehensive transcript FASTA ALL')
-    def gtf = exactly_one(files.findAll { it.name ==~ /gencode\.v\d+\.chr_patch_hapl_scaff\.annotation\.gtf\.gz/ }, 'GENCODE comprehensive annotation GTF ALL')
-    def genome = exactly_one(files.findAll { it.name ==~ /GRCh38\.p\d+\.genome\.fa\.gz/ }, 'GENCODE GRCh38 genome FASTA ALL')
-
-    def tx_release = (tx.name =~ /gencode\.v(\d+)\./)[0][1]
-    def gtf_release = (gtf.name =~ /gencode\.v(\d+)\./)[0][1]
-    def genome_patch = (genome.name =~ /GRCh38\.p(\d+)\./)[0][1]
-
-    if (tx_release != gtf_release) error "Transcript FASTA release v${tx_release} and GTF release v${gtf_release} differ"
-    if (tx_release != current_gencode_release) error "Local GENCODE release v${tx_release} does not match current Human release v${current_gencode_release}. Download the current ALL files from https://www.gencodegenes.org/human/"
-    if (genome_patch != current_grch38_patch) error "Local genome assembly GRCh38.p${genome_patch} does not match current GRCh38.p${current_grch38_patch}"
+    def tx = exactly_one(files.findAll { it.name ==~ tx_re }, "GENCODE v${release} transcript FASTA")
+    def gtf = exactly_one(files.findAll { it.name ==~ gtf_re }, "GENCODE v${release} GTF")
+    def genome = exactly_one(files.findAll { it.name ==~ genome_re }, "GRCh38.p${patch} genome FASTA")
 
     [tx, genome, gtf]
 }
 
 def derived_reference(path) {
     def raw_dir = file(path, type: 'dir', checkIfExists: true)
-    def derived_dir = file("${raw_dir.parent}/derived")
-    def gentrome = file("${derived_dir}/gentrome.fa")
-    def decoys = file("${derived_dir}/decoys.txt")
-    def gtf = file("${derived_dir}/annotation.gtf.gz")
-    def index = file("${derived_dir}/salmon_index", type: 'dir')
-    def index_meta = file("${derived_dir}/salmon_index/info.json")
-    [derived_dir, gentrome, decoys, gtf, index, index_meta]
+    def derived_dir = raw_dir.parent.resolve('derived')
+    [
+        derived_dir,
+        file("${derived_dir}/gentrome.fa"),
+        file("${derived_dir}/decoys.txt"),
+        file("${derived_dir}/annotation.gtf.gz"),
+        file("${derived_dir}/salmon_index"),
+        file("${derived_dir}/reference_manifest.json")
+    ]
 }
 
-def derived_reference_complete(path) {
-    def d = derived_reference(path)
-    d[1].exists() && d[2].exists() && d[3].exists() && d[4].exists() && d[5].exists()
+def clean_derived_reference(d) {
+    [d[1], d[2], d[3], d[5]].each { f -> if (f.exists()) f.delete() }
+    if (d[4].exists()) d[4].deleteDir()
+}
+
+def reference_manifest_matches(refs, d) {
+    if (![d[1], d[2], d[3], d[4], d[5]].every { it.exists() }) return false
+
+    def manifest = new groovy.json.JsonSlurper().parse(d[5])
+    def expected = [
+        manifest_format_version: 1,
+        gencode_release: params.gencode_release.toString(),
+        grch38_patch: params.genome_patch.toString(),
+        transcript_fasta_filename: refs[0].name,
+        transcript_fasta_sha256: sha256_file(refs[0]),
+        genome_fasta_filename: refs[1].name,
+        genome_fasta_sha256: sha256_file(refs[1]),
+        gtf_filename: refs[2].name,
+        gtf_sha256: sha256_file(refs[2]),
+        salmon_version: params.salmon_version.toString(),
+        salmon_index_k: params.salmon_k.toString(),
+        salmon_index_options: params.salmon_index_options.toString(),
+        decoy_generation_method: 'genome_fasta_headers_only'
+    ]
+
+    expected.every { key, value -> manifest[key]?.toString() == value.toString() }
 }
 
 workflow {
-    if (!params.samplesheet && !params.fastq_dir) error "Provide --samplesheet or --fastq_dir"
+    if (params.help) {
+        log.info help_text()
+        return
+    }
+
+    validate_common_params()
 
     def samplesheet = params.samplesheet
     if (params.fastq_dir) {
@@ -170,33 +195,46 @@ workflow {
     def refs = validate_reference_dir(params.reference_dir)
     def derived = derived_reference(params.reference_dir)
 
+    if (params.rebuild_reference) clean_derived_reference(derived)
+
+    def reuse_reference = reference_manifest_matches(refs, derived)
+    if (!reuse_reference && [derived[1], derived[2], derived[3], derived[4], derived[5]].any { it.exists() } && !params.rebuild_reference) {
+        error "Existing derived reference is incompatible with requested inputs/settings. Rerun with --rebuild_reference true to rebuild intentionally."
+    }
+
     if (params.validate_only) {
         log.info "Validated ${rows.size()} sample(s) from ${samplesheet}"
         log.info "Reference inputs found in ${params.reference_dir}"
+        log.info reuse_reference ? "Existing derived reference/index is compatible." : "Derived reference/index will be built during the full run."
         log.info "Inspect the samplesheet, then rerun without --validate_only true to launch the pipeline."
         return
     }
 
-    samples = Channel.fromList(rows)
-    reference_inputs = Channel.value(tuple(file(refs[0]), file(refs[1]), file(refs[2])))
+    def samples_for_qc = Channel.fromList(rows)
+    def samples_for_quant = Channel.fromList(rows)
 
-    FASTQC(samples)
-    MULTIQC(FASTQC.out.reports.collect())
+    FASTQC(samples_for_qc)
 
-    if (!params.rebuild_reference && derived_reference_complete(params.reference_dir)) {
-        log.info "Reusing derived reference and Salmon index under ${derived[0]}"
+    if (reuse_reference) {
+        log.info "Reusing compatible derived reference/index in ${derived[0]}"
         reference_gtf = Channel.value(file(derived[3]))
         salmon_index = Channel.value(tuple(file(derived[4], type: 'dir'), file(derived[5])))
     } else {
-        log.info "Building derived reference and Salmon index from ${params.reference_dir}"
-        BUILD_FULL_DECOY_REFERENCE(MULTIQC.out.report, reference_inputs)
-        SALMON_INDEX(BUILD_FULL_DECOY_REFERENCE.out.reference)
-        reference_gtf = BUILD_FULL_DECOY_REFERENCE.out.gtf
+        reference_inputs = Channel.value(tuple(file(refs[0]), file(refs[1]), file(refs[2])))
+        BUILD_FULL_DECOY_REFERENCE(reference_inputs)
+        SALMON_INDEX(BUILD_FULL_DECOY_REFERENCE.out.reference_files)
+        reference_gtf = SALMON_INDEX.out.reference_gtf
         salmon_index = SALMON_INDEX.out.index
     }
 
-    SALMON_QUANT(samples, salmon_index)
+    SALMON_QUANT(samples_for_quant, salmon_index)
     quant_dirs = SALMON_QUANT.out.quant_dirs.map { sample, quant_dir -> quant_dir }
+
     TXIMPORT(quant_dirs.collect(), reference_gtf, file(samplesheet, checkIfExists: true))
-    RAW_COUNT_SUMMARY(quant_dirs.collect(), TXIMPORT.out.gene_counts)
+    ESTIMATED_COUNT_SUMMARY(quant_dirs.collect(), TXIMPORT.out.gene_counts, file(samplesheet, checkIfExists: true))
+
+    multiqc_inputs = FASTQC.out.reports.mix(SALMON_QUANT.out.quant_dirs.map { sample, quant_dir -> quant_dir })
+    MULTIQC(multiqc_inputs.collect())
+
+    SOFTWARE_VERSIONS(file(samplesheet, checkIfExists: true), salmon_index.map { index_dir, manifest -> manifest }, workflow.nextflow.version)
 }

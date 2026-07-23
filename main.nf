@@ -75,8 +75,15 @@ def clean_derived(paths) {
 }
 
 def manifest_matches(paths, refs) {
-    if (!paths[1..3].every { it.isFile() } || !paths[4].isDirectory() ||
-        !paths[4].resolve('info.json').isFile() || !paths[5].isFile()) return false
+    def files = [paths[1], paths[2], paths[3], paths[5]]
+    def index_files = ['index.ctab', 'index.ectab', 'index.refinfo', 'index.ssi',
+                       'refseq.bin', 'refseq_offsets.json', 'info.json']
+    if (!files.every { it.isFile() && it.toFile().length() > 0 } || !paths[4].isDirectory() ||
+        !index_files.every { name -> paths[4].resolve(name).isFile() && paths[4].resolve(name).toFile().length() > 0 }) return false
+
+    def info = new groovy.json.JsonSlurper().parse(paths[4].resolve('info.json').toFile())
+    if (info.salmon_version != params.salmon_version || info.k != params.salmon_k ||
+        !info.has_ec_table || info.num_refs <= 0 || info.num_decoys <= 0) return false
     def manifest = paths[5].readLines().drop(1).collectEntries { line ->
         def fields = line.split('\t', 2)
         fields.size() == 2 ? [(fields[0]): fields[1]] : [:]

@@ -126,7 +126,7 @@ GRCh38_GENCODE/
 
 The transcript and genome FASTAs are decompressed, checked for duplicate identifiers, and concatenated in that order. Genome identifiers become decoys, every decoy is checked against the gentrome, and Salmon builds the index with `--gencode`.
 
-Before each run, the workflow automatically checks that all five derived artifacts exist, `salmon_index/` is a directory containing `info.json`, and the manifest matches the requested GENCODE release, genome patch, filenames, Salmon version, k-mer size, and `--gencode` option. A complete compatible reference is reused. Otherwise, only these known derived artifacts are removed and rebuilt automatically. Multi-gigabyte files are not checksummed on every launch.
+Before each run, the workflow checks that all five derived artifacts are non-empty; the Salmon index contains its core Piscem files; `info.json` reports the expected Salmon version, k-mer size, references, decoys, and equivalence-class table; and the manifest matches the requested GENCODE release, genome patch, filenames, Salmon version, k-mer size, and `--gencode` option. A complete compatible reference is reused. Otherwise, only these known derived artifacts are removed and rebuilt automatically. Multi-gigabyte files are not checksummed on every launch.
 
 ## Parameters
 

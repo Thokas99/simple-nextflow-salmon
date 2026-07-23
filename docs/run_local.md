@@ -2,7 +2,12 @@
 
 ## 1. Prepare the Folder
 
-Clone or copy this repo, then put the current GENCODE Human raw files here:
+Clone the repo, then put the current GENCODE Human raw files here:
+
+```bash
+git clone https://github.com/Thokas99/simple-nextflow-salmon.git
+cd simple-nextflow-salmon
+```
 
 ```text
 reference/GRCh38_GENCODE/raw/
@@ -34,6 +39,12 @@ The pipeline checks these before launching workflow processes. If a file is miss
 
 ## 2. Prepare a Samplesheet
 
+Create one automatically from paired FASTQ filenames:
+
+```bash
+python3 scripts/make_samplesheet.py ../data/fastqs -o ../data/samplesheet.csv
+```
+
 Example:
 
 ```csv
@@ -44,7 +55,19 @@ UDB003,/path/to/UDB003_R1.fq.gz,/path/to/UDB003_R2.fq.gz
 
 Sample IDs must be unique.
 
-## 3. Run
+Inspect `../data/samplesheet.csv` before launching the full workflow.
+
+## 3. Validate
+
+```bash
+nextflow run . \
+  --samplesheet ../data/samplesheet.csv \
+  --reference_dir reference/GRCh38_GENCODE/raw \
+  --validate_only true \
+  -profile conda
+```
+
+## 4. Run
 
 ```bash
 nextflow run . \
@@ -54,7 +77,7 @@ nextflow run . \
   -profile conda
 ```
 
-## 4. Reuse the Reference
+## 5. Reuse the Reference
 
 After the first successful run, the pipeline reuses these files automatically:
 

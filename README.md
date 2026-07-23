@@ -11,6 +11,7 @@ Reproducible DSL2 workflow for paired-end RNA-seq quantification with FastQC, Mu
 - [Install Environments](#install-environments)
 - [Reference Files](#reference-files)
 - [Samplesheet](#samplesheet)
+- [Automatic Samplesheet](#automatic-samplesheet)
 - [Run Locally](#run-locally)
 - [Run From GitHub](#run-from-github)
 - [Outputs](#outputs)
@@ -205,9 +206,51 @@ Rules:
 - The same FASTQ cannot be assigned twice.
 - This version does not merge lanes automatically. Use one row per final sample.
 
+## Automatic Samplesheet
+
+Create a samplesheet from paired FASTQ filenames:
+
+```bash
+python3 scripts/make_samplesheet.py /path/to/fastqs -o samplesheet.csv
+```
+
+The script scans subdirectories and supports names like:
+
+```text
+UDB001_R1.fastq.gz
+UDB001_R2.fastq.gz
+UDB001_L001_R1.fq.gz
+UDB001_L001_R2.fq.gz
+```
+
+It writes `sample,fastq_1,fastq_2` with absolute FASTQ paths. Inspect `samplesheet.csv` before launching the full pipeline.
+
 ## Run Locally
 
 From the cloned repository:
+
+```bash
+git clone https://github.com/Thokas99/simple-nextflow-salmon.git
+cd simple-nextflow-salmon
+```
+
+Create and inspect the samplesheet:
+
+```bash
+python3 scripts/make_samplesheet.py ../data/fastqs -o ../data/samplesheet.csv
+```
+
+Validate the samplesheet and reference files before launching processes:
+
+```bash
+nextflow run . \
+  --samplesheet ../data/samplesheet.csv \
+  --reference_dir reference/GRCh38_GENCODE/raw \
+  --validate_only true \
+  -profile conda
+```
+
+Then run the pipeline:
 
 ```bash
 nextflow run . \
@@ -298,7 +341,7 @@ This is useful only when the raw GENCODE files change.
 
 ## Important Design Decisions
 
-- CSV/TSV samplesheets are explicit and reproducible; no filename guessing.
+- CSV/TSV samplesheets are explicit and reproducible; filename discovery is only a helper to create a reviewable samplesheet.
 - Sample IDs are unique; no hidden lane merging.
 - GENCODE FASTA headers are handled with `salmon index --gencode`.
 - tximport preserves versioned GENCODE identifiers and checks `quant.sf`/GTF overlap.

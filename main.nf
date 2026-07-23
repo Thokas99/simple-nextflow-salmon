@@ -14,6 +14,7 @@ params.reference_dir = 'reference/GRCh38_GENCODE/raw'
 params.lib_type = 'A'
 params.salmon_k = 31
 params.rebuild_reference = false
+params.validate_only = false
 
 def split_row(line, sep) {
     (line.split(java.util.regex.Pattern.quote(sep), -1) as List).collect { it.trim() }
@@ -117,6 +118,13 @@ workflow {
     def rows = parse_samplesheet(params.samplesheet)
     def refs = validate_reference_dir(params.reference_dir)
     def derived = derived_reference(params.reference_dir)
+
+    if (params.validate_only) {
+        log.info "Validated ${rows.size()} sample(s) from ${params.samplesheet}"
+        log.info "Reference inputs found in ${params.reference_dir}"
+        log.info "Inspect the samplesheet, then rerun without --validate_only true to launch the pipeline."
+        return
+    }
 
     samples = Channel.fromList(rows)
     reference_inputs = Channel.value(tuple(file(refs[0]), file(refs[1]), file(refs[2])))

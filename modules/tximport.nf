@@ -1,7 +1,5 @@
 process TXIMPORT {
     publishDir "${params.outdir}/tximport", mode: 'copy'
-    conda "${projectDir}/envs/r_tximport.yml"
-
     cpus { params.tximport_cpus ?: 2 }
     memory { params.tximport_memory ?: '16 GB' }
 

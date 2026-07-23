@@ -1,7 +1,5 @@
 process SALMON_INDEX {
     publishDir "${params.reference_dir}/../derived", mode: 'copy'
-    conda "${projectDir}/envs/salmon.yml"
-
     cpus { params.index_cpus ?: 8 }
     memory { params.index_memory ?: '32 GB' }
 

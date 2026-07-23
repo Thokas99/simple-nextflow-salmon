@@ -1,8 +1,0 @@
-name: salmon-rnaseq-salmon
-channels:
-  - conda-forge
-  - bioconda
-dependencies:
-  - salmon=2.3.4
-  - pigz=2.8
-  - seqkit=2.10.0

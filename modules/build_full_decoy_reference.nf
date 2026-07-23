@@ -1,7 +1,5 @@
 process BUILD_FULL_DECOY_REFERENCE {
     publishDir "${params.reference_dir}/../derived", mode: 'copy'
-    conda "${projectDir}/envs/salmon.yml"
-
     cpus { params.reference_cpus ?: 4 }
     memory { params.reference_memory ?: '16 GB' }
 

@@ -1,8 +1,6 @@
 process FASTQC {
     tag "$sample"
     publishDir "${params.outdir}/qc/fastqc", mode: 'copy'
-    conda "${projectDir}/envs/qc.yml"
-
     cpus { params.fastqc_cpus ?: 2 }
     memory { params.fastqc_memory ?: '2 GB' }
 

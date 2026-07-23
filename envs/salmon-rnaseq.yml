@@ -1,0 +1,20 @@
+name: salmon-rnaseq
+channels:
+  - conda-forge
+  - bioconda
+channel_priority: strict
+dependencies:
+  - salmon
+  - fastqc
+  - multiqc
+  - seqkit
+  - pigz
+  - samtools
+  - r-base
+  - r-tidyverse
+  - r-data.table
+  - r-readr
+  - r-jsonlite
+  - bioconductor-tximport
+  - bioconductor-rhdf5
+  - bioconductor-biocparallel

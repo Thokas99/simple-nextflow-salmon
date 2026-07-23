@@ -1,8 +1,6 @@
 process SALMON_QUANT {
     tag "$sample"
     publishDir "${params.outdir}/salmon", mode: 'copy'
-    conda "${projectDir}/envs/salmon.yml"
-
     cpus { params.salmon_cpus ?: 4 }
     memory { params.salmon_memory ?: '8 GB' }
 

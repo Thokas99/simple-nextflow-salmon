@@ -1,7 +1,5 @@
 process MULTIQC {
     publishDir "${params.outdir}/qc/multiqc", mode: 'copy'
-    conda "${projectDir}/envs/qc.yml"
-
     cpus { params.multiqc_cpus ?: 1 }
     memory { params.multiqc_memory ?: '2 GB' }
 

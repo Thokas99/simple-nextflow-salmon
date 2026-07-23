@@ -1,7 +1,5 @@
 process RAW_COUNT_SUMMARY {
     publishDir "${params.outdir}/summary", mode: 'copy'
-    conda "${projectDir}/envs/r_tximport.yml"
-
     cpus { params.summary_cpus ?: 1 }
     memory { params.summary_memory ?: '4 GB' }
 

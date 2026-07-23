@@ -12,6 +12,13 @@ Micromamba or Conda
 Git
 ```
 
+## Clone Locally
+
+```bash
+git clone https://github.com/Thokas99/simple-nextflow-salmon.git
+cd simple-nextflow-salmon
+```
+
 ## Environment
 
 The workflow ships one Micromamba/Conda-compatible YAML file:
@@ -123,6 +130,22 @@ Later runs reuse the derived reference automatically unless:
 ## Local Development Run
 
 From a cloned repo:
+
+```bash
+python3 scripts/make_samplesheet.py ../data/fastqs -o ../data/samplesheet.csv
+```
+
+Inspect `../data/samplesheet.csv`, then validate inputs:
+
+```bash
+nextflow run . \
+  --samplesheet ../data/samplesheet.csv \
+  --reference_dir reference/GRCh38_GENCODE/raw \
+  --validate_only true \
+  -profile conda
+```
+
+Launch the full run:
 
 ```bash
 nextflow run . \

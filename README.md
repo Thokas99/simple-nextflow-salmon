@@ -126,13 +126,7 @@ GRCh38_GENCODE/
 
 The transcript and genome FASTAs are decompressed, checked for duplicate identifiers, and concatenated in that order. Genome identifiers become decoys, every decoy is checked against the gentrome, and Salmon builds the index with `--gencode`.
 
-The small manifest is written only when the index is built. Reuse requires the derived files plus matching GENCODE release, genome patch, filenames, Salmon version, k-mer size, and `--gencode` option. A mismatch stops with:
-
-```bash
---rebuild_reference true
-```
-
-That option removes only the known files under the selected `derived/` directory. It does not checksum multi-gigabyte references on every launch.
+Before each run, the workflow automatically checks that all five derived artifacts exist, `salmon_index/` is a directory containing `info.json`, and the manifest matches the requested GENCODE release, genome patch, filenames, Salmon version, k-mer size, and `--gencode` option. A complete compatible reference is reused. Otherwise, only these known derived artifacts are removed and rebuilt automatically. Multi-gigabyte files are not checksummed on every launch.
 
 ## Parameters
 
@@ -145,7 +139,6 @@ That option removes only the known files under the selected `derived/` directory
 | `--genome_patch` | `14` | GRCh38 patch |
 | `--salmon_k` | `31` | Salmon index k-mer size |
 | `--lib_type` | `A` | Salmon library type |
-| `--rebuild_reference` | `false` | Rebuild known derived artifacts |
 | `--validate_only` | `false` | Validate inputs without running processes |
 
 User inputs and outputs may be absolute or relative to the launch directory. `projectDir` is used only for workflow modules, scripts, and the Conda YAML bundled with the repository.
@@ -178,7 +171,7 @@ Use the same command and add `-resume`. Nextflow reuses completed tasks from its
 | Problem | Resolution |
 | --- | --- |
 | Missing reference file | Check the exact GENCODE release and GRCh38 patch filenames under `--reference_dir` |
-| Incompatible derived reference | Review the selected raw files, then use `--rebuild_reference true` |
+| Incomplete or incompatible derived reference | The known derived artifacts are removed and rebuilt automatically |
 | FASTQ not found | Use an absolute path or a path relative to the launch directory |
 | Unsafe or duplicate sample | Correct the samplesheet; lanes must have distinct sample IDs |
 | Conda solve fails | Confirm Conda/Mamba is available and retry after clearing only the failed cached environment |

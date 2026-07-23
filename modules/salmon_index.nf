@@ -25,7 +25,6 @@ process SALMON_INDEX {
     printf 'salmon_version\t%s\n' "\$salmon_version" >> reference_manifest.tsv
     printf 'salmon_k\t%s\n' '${params.salmon_k}' >> reference_manifest.tsv
     printf 'index_options\t--gencode\n' >> reference_manifest.tsv
-    cp ${gtf} annotation.gtf.gz
     """
 
     stub:

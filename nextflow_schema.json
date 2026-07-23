@@ -5,9 +5,9 @@
   "type": "object",
   "properties": {
     "samplesheet": {"type": ["string", "null"], "description": "CSV/TSV samplesheet with sample, fastq_1, fastq_2"},
-    "fastq_dir": {"type": ["string", "null"], "description": "Directory scanned to generate a samplesheet"},
+    "fastq_dir": {"type": ["string", "null"], "description": "Directory scanned recursively to generate a samplesheet"},
     "outdir": {"type": "string", "default": "results"},
-    "reference_dir": {"type": "string", "default": "reference/GRCh38_GENCODE/raw"},
+    "reference_dir": {"type": "string", "default": "${projectDir}/reference/GRCh38_GENCODE/raw", "description": "Raw GENCODE reference directory; defaults to the pipeline checkout"},
     "gencode_release": {"type": "integer", "minimum": 1, "default": 50},
     "genome_patch": {"type": "integer", "minimum": 1, "default": 14},
     "lib_type": {"type": "string", "default": "A"},

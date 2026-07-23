@@ -10,42 +10,40 @@ It deliberately does not do trimming, alignment, filtering, normalization, diffe
 
 ## Quick Start
 
+Clone the pipeline and put the GENCODE reference files in the bundled reference folder:
+
 ```bash
 git clone https://github.com/Thokas99/simple-nextflow-salmon.git
 cd simple-nextflow-salmon
 ```
 
-Put pinned GENCODE files under `reference/GRCh38_GENCODE/raw/`, then generate and validate a samplesheet:
+Expected reference files:
+
+```text
+reference/GRCh38_GENCODE/raw/gencode.v50.transcripts.fa.gz
+reference/GRCh38_GENCODE/raw/GRCh38.p14.genome.fa.gz
+reference/GRCh38_GENCODE/raw/gencode.v50.chr_patch_hapl_scaff.annotation.gtf.gz
+```
+
+Run from the directory that contains your FASTQ folder. Relative paths are resolved from that directory:
 
 ```bash
-nextflow run . \
-  --fastq_dir /path/to/fastqs \
-  --samplesheet samplesheet.csv \
-  --validate_only true \
+nextflow run simple_nextflow_salmon/ \
+  --fastq_dir fastq2 \
+  --outdir output \
   -profile conda
 ```
 
-Inspect `samplesheet.csv`, then run:
+If you already have a samplesheet, use it directly:
 
 ```bash
-nextflow run . \
-  --samplesheet samplesheet.csv \
-  --outdir results \
+nextflow run simple_nextflow_salmon/ \
+  --samplesheet fastq2/samplesheet.csv \
+  --outdir output \
   -profile conda
 ```
 
-From GitHub after the v0.2.0 release tag exists:
-
-```bash
-nextflow run Thokas99/simple-nextflow-salmon \
-  -r v0.2.0 \
-  --samplesheet /local/path/samplesheet.csv \
-  --reference_dir /local/path/reference/GRCh38_GENCODE/raw \
-  --outdir /local/path/results \
-  -profile conda
-```
-
-Nextflow downloads the pipeline source from GitHub. FASTQs, samplesheets, references, and outputs remain local to the execution machine.
+Only pass `--reference_dir` when the reference is outside the pipeline checkout.
 
 ## Workflow
 

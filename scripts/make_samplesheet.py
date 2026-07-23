@@ -16,7 +16,8 @@ from pathlib import Path
 
 
 FASTQ_RE = re.compile(
-    r"^(?P<sample>.+?)(?:[_.-]R(?P<read_a>[12])|[_.-](?P<read_b>[12]))(?:[_.-]001)?(?P<ext>\.f(?:ast)?q(?:\.gz)?)$",
+    r"^(?P<sample>.+?)(?:[_.-]R(?P<read_a>[12])|[_.-](?P<read_b>[12]))"
+    r"(?:[_.-]001)?(?P<ext>\.f(?:ast)?q(?:\.gz)?)$",
     re.IGNORECASE,
 )
 
@@ -32,28 +33,29 @@ def build_rows(fastqs: list[Path]) -> list[dict[str, str]]:
         match = FASTQ_RE.match(fastq.name)
         if not match:
             continue
-        sample = match.group("sample")
+
         read = match.group("read_a") or match.group("read_b")
-        slot = pairs.setdefault(sample, {})
-        if read in slot:
-            raise SystemExit(f"Duplicate R{read} FASTQ for sample '{sample}': {fastq}")
-        slot[read] = fastq.resolve()
+        sample = match.group("sample")
+        reads = pairs.setdefault(sample, {})
+        if read in reads:
+            raise SystemExit(f"Duplicate R{read} FASTQ for sample {sample}: {fastq}")
+        reads[read] = fastq.resolve()
 
-    missing = sorted(sample for sample, reads in pairs.items() if "1" not in reads or "2" not in reads)
-    if missing:
-        raise SystemExit("Missing pair for sample(s): " + ", ".join(missing))
+    rows = []
+    for sample, reads in sorted(pairs.items()):
+        missing = {"1", "2"} - set(reads)
+        if missing:
+            raise SystemExit(f"Missing R{','.join(sorted(missing))} FASTQ for sample {sample}")
+        rows.append({"sample": sample, "fastq_1": str(reads["1"]), "fastq_2": str(reads["2"])})
 
-    return [
-        {"sample": sample, "fastq_1": str(reads["1"]), "fastq_2": str(reads["2"])}
-        for sample, reads in sorted(pairs.items())
-    ]
+    return rows
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Create sample,fastq_1,fastq_2 CSV from paired FASTQ files.")
-    parser.add_argument("fastq_dir", type=Path, help="Directory containing FASTQ files")
-    parser.add_argument("-o", "--out", type=Path, default=Path("samplesheet.csv"), help="Output CSV path")
-    parser.add_argument("--json", action="store_true", help="Print machine-readable summary")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("fastq_dir", type=Path)
+    parser.add_argument("-o", "--out", type=Path, default=Path("samplesheet.csv"))
+    parser.add_argument("--json", action="store_true", help="Print machine-readable output")
     args = parser.parse_args()
 
     if not args.fastq_dir.is_dir():
@@ -61,7 +63,7 @@ def main() -> int:
 
     rows = build_rows(find_fastqs(args.fastq_dir))
     if not rows:
-        raise SystemExit(f"No paired FASTQ filenames found in: {args.fastq_dir}")
+        raise SystemExit(f"No paired FASTQs found in: {args.fastq_dir}")
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with args.out.open("w", newline="") as handle:

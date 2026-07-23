@@ -92,14 +92,14 @@ def run_json_command(List command) {
 
 def resolve_launch_path(path) {
     if (!path) return null
-    def p = file(path.toString())
-    p.isAbsolute() ? p : file("${launchDir}/${path}")
+    def p = new File(path.toString())
+    p.isAbsolute() ? p : new File(launchDir.toString(), path.toString())
 }
 
 def resolve_input_path(path) {
     def p = resolve_launch_path(path)
     if (p?.exists()) return p
-    def project_path = file("${projectDir}/${path}")
+    def project_path = new File(projectDir.toString(), path.toString())
     project_path.exists() ? project_path : p
 }
 
@@ -196,23 +196,23 @@ workflow {
         return
     }
 
-    params.outdir = resolve_launch_path(params.outdir)
-    if (params.samplesheet) params.samplesheet = resolve_input_path(params.samplesheet)
-    if (params.fastq_dir) params.fastq_dir = resolve_input_path(params.fastq_dir)
-    if (params.generated_samplesheet) params.generated_samplesheet = resolve_launch_path(params.generated_samplesheet)
-    params.reference_dir = resolve_input_path(params.reference_dir)
+    def outdir = resolve_launch_path(params.outdir)
+    def samplesheet = params.samplesheet ? resolve_input_path(params.samplesheet) : null
+    def fastq_dir = params.fastq_dir ? resolve_input_path(params.fastq_dir) : null
+    def generated_samplesheet = params.generated_samplesheet ? resolve_launch_path(params.generated_samplesheet) : null
+    def reference_dir = resolve_input_path(params.reference_dir)
+    params.outdir = outdir.toString()
 
     validate_common_params()
 
-    def samplesheet = resolve_launch_path(params.samplesheet)
-    if (params.fastq_dir) {
-        samplesheet = resolve_launch_path(params.samplesheet ?: params.generated_samplesheet ?: "${params.outdir}/samplesheet.generated.csv")
-        samplesheet = make_samplesheet(params.fastq_dir, samplesheet)
+    if (fastq_dir) {
+        samplesheet = samplesheet ?: generated_samplesheet ?: new File(outdir, 'samplesheet.generated.csv')
+        samplesheet = make_samplesheet(fastq_dir, samplesheet)
     }
 
     def rows = parse_samplesheet(samplesheet)
-    def refs = validate_reference_dir(params.reference_dir)
-    def derived = derived_reference(params.reference_dir)
+    def refs = validate_reference_dir(reference_dir)
+    def derived = derived_reference(reference_dir)
 
     if (params.rebuild_reference) clean_derived_reference(derived)
 
@@ -223,7 +223,7 @@ workflow {
 
     if (params.validate_only) {
         log.info "Validated ${rows.size()} sample(s) from ${samplesheet}"
-        log.info "Reference inputs found in ${params.reference_dir}"
+        log.info "Reference inputs found in ${reference_dir}"
         log.info reuse_reference ? "Existing derived reference/index is compatible." : "Derived reference/index will be built during the full run."
         log.info "Inspect the samplesheet, then rerun without --validate_only true to launch the pipeline."
         return

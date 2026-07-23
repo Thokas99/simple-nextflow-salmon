@@ -20,4 +20,4 @@ nextflow run . \
   -resume
 ```
 
-Remove `--validate_only true` only after inspecting the samplesheet. Complete compatible derived references are reused; incomplete or incompatible known artifacts are rebuilt automatically.
+Remove `--validate_only true` only after inspecting the samplesheet. Repeated rows with the same `sample` are quantified together as ordered technical replicates. Complete compatible derived references are reused; incomplete or incompatible known artifacts are rebuilt automatically. `-resume` is a one-hyphen Nextflow option; pipeline parameters use two hyphens.

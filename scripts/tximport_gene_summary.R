@@ -50,7 +50,7 @@ if (!length(quant_dirs)) stop("No quantification directories supplied", call. = 
 dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
 
 samples <- read_samplesheet(samplesheet)
-expected <- samples$sample
+expected <- unique(samples$sample)
 
 quant_paths <- file.path(quant_dirs, "quant.sf")
 names(quant_paths) <- basename(quant_dirs)

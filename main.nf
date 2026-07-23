@@ -5,6 +5,7 @@ include { MULTIQC } from './modules/multiqc'
 include { BUILD_FULL_DECOY_REFERENCE } from './modules/build_full_decoy_reference'
 include { SALMON_INDEX } from './modules/salmon_index'
 include { SALMON_QUANT } from './modules/salmon_quant'
+include { SALMON_METRICS } from './modules/salmon_metrics'
 include { TXIMPORT } from './modules/tximport'
 include { ESTIMATED_COUNT_SUMMARY } from './modules/estimated_count_summary'
 
@@ -22,31 +23,77 @@ def user_file(value, check = false) {
 }
 
 def read_samplesheet(path) {
-    def lines = path.readLines().findAll { it.trim() }
-    if (!lines) error "Samplesheet is empty: ${path}"
-    def header = lines[0].split(',', -1)*.trim()
-    if (header != ['sample', 'fastq_1', 'fastq_2']) {
-        error 'Samplesheet columns must be exactly: sample,fastq_1,fastq_2'
-    }
+    def errors = []
+    if (!path.isFile()) errors << "Samplesheet does not exist or is not a file: ${path}"
+    else if (!path.toFile().canRead()) errors << "Samplesheet is not readable: ${path}"
+    if (errors) error "Samplesheet validation failed:\n- ${errors.join('\n- ')}"
 
-    def samples = [] as Set
-    def fastqs = [] as Set
-    def rows = lines.drop(1).withIndex().collect { line, index ->
-        def fields = line.split(',', -1)*.trim()
-        if (fields.size() != 3) error "Malformed samplesheet row ${index + 2}: expected 3 fields"
-        def (sample, r1_text, r2_text) = fields
-        if (!(sample ==~ /^[A-Za-z0-9][A-Za-z0-9_.-]*$/)) error "Unsafe sample ID on row ${index + 2}: ${sample}"
-        if (!r1_text || !r2_text) error "Sample ${sample} must have both fastq_1 and fastq_2"
-        if (!samples.add(sample)) error "Duplicate sample ID: ${sample}"
-        def r1 = user_file(r1_text, true)
-        def r2 = user_file(r2_text, true)
-        if (!r1.toFile().isFile() || !r2.toFile().isFile()) error "FASTQ path is not a file near sample: ${sample}"
-        if (r1 == r2) error "Sample ${sample} uses the same file for R1 and R2"
-        if (!fastqs.add(r1) || !fastqs.add(r2)) error "FASTQ assigned more than once near sample: ${sample}"
-        tuple(sample, r1, r2)
+    def entries = path.readLines().withIndex().findAll { line, index -> line.trim() }.collect { line, index ->
+        [row: index + 1, text: line]
     }
-    if (!rows) error "Samplesheet has no sample rows: ${path}"
-    rows
+    if (!entries) error "Samplesheet validation failed:\n- Samplesheet is empty: ${path}"
+
+    def header = entries[0].text.split(',', -1)*.trim()
+    def required = ['sample', 'fastq_1', 'fastq_2']
+    def missing = required - header
+    def extra = header - required
+    if (missing) errors << "Header row ${entries[0].row}: missing column(s): ${missing.join(', ')}"
+    if (extra) errors << "Header row ${entries[0].row}: unexpected column(s): ${extra.join(', ')}"
+    if (header.size() != required.size()) errors << "Header row ${entries[0].row}: expected exactly sample,fastq_1,fastq_2"
+    if (errors) error "Samplesheet validation failed:\n- ${errors.unique().join('\n- ')}"
+
+    def rows = []
+    def row_keys = [] as Set
+    def fastq_samples = [:]
+    def fastq_names = [:]
+    entries.drop(1).each { entry ->
+        def fields = entry.text.split(',', -1)*.trim()
+        if (fields.size() != header.size()) {
+            errors << "Row ${entry.row}: expected ${header.size()} fields, found ${fields.size()}"
+            return
+        }
+
+        def values = [header, fields].transpose().collectEntries()
+        def sample = values.sample
+        def r1_text = values.fastq_1
+        def r2_text = values.fastq_2
+        if (!sample) errors << "Row ${entry.row}, sample: value is empty"
+        else if (!(sample ==~ /^[A-Za-z0-9][A-Za-z0-9_.-]*$/)) errors << "Row ${entry.row}, sample: unsafe output name '${sample}'"
+        if (!r1_text) errors << "Row ${entry.row}, fastq_1: path is empty"
+        if (!r2_text) errors << "Row ${entry.row}, fastq_2: path is empty; paired-end rows require both mates"
+        if (!sample || !r1_text || !r2_text) return
+
+        def r1 = user_file(r1_text)
+        def r2 = user_file(r2_text)
+        [[field: 'fastq_1', path: r1], [field: 'fastq_2', path: r2]].each { item ->
+            if (!(item.path.name ==~ /(?i).+\.(fastq|fq)(\.gz)?$/)) errors << "Row ${entry.row}, ${item.field}: unsupported FASTQ extension '${item.path.name}'"
+            if (!item.path.isFile()) errors << "Row ${entry.row}, ${item.field}: file not found '${item.path}'"
+            else if (!item.path.toFile().canRead()) errors << "Row ${entry.row}, ${item.field}: file is not readable '${item.path}'"
+        }
+        if (r1 == r2) errors << "Row ${entry.row}: fastq_1 and fastq_2 point to the same file '${r1}'"
+
+        def row_key = [sample, r1.toString(), r2.toString()]
+        if (!row_keys.add(row_key)) errors << "Row ${entry.row}: duplicate samplesheet row for sample '${sample}'"
+        [r1, r2].each { fastq ->
+            def owner = fastq_samples[fastq.toString()]
+            if (owner && owner != sample) errors << "Row ${entry.row}: FASTQ '${fastq}' is already assigned to biological sample '${owner}'"
+            else if (owner == sample) errors << "Row ${entry.row}: FASTQ '${fastq}' is repeated within sample '${sample}'"
+            else fastq_samples[fastq.toString()] = sample
+            def named_path = fastq_names[fastq.name]
+            if (named_path && named_path != fastq.toString()) errors << "Row ${entry.row}: FASTQ basename '${fastq.name}' is already used by '${named_path}'"
+            else fastq_names[fastq.name] = fastq.toString()
+        }
+        rows << tuple(sample, r1, r2)
+    }
+    if (!entries.drop(1)) errors << 'Samplesheet has no data rows'
+    if (errors) error "Samplesheet validation failed:\n- ${errors.unique().join('\n- ')}"
+
+    def grouped = new LinkedHashMap()
+    rows.each { sample, r1, r2 -> grouped.computeIfAbsent(sample) { [] } << tuple(r1, r2) }
+    def samples = grouped.collect { sample, lanes ->
+        tuple(sample, lanes.collect { it[0] }, lanes.collect { it[1] }, lanes.size())
+    }
+    [rows: rows, samples: samples]
 }
 
 def reference_inputs(raw_dir) {
@@ -105,15 +152,24 @@ workflow {
     params.validate_only = as_bool(params.validate_only, 'validate_only')
     if (!params.samplesheet) error 'Provide --samplesheet /absolute/path/to/samplesheet.csv'
 
-    def samplesheet = user_file(params.samplesheet, true)
-    def rows = read_samplesheet(samplesheet)
+    user_file("${params.outdir}/pipeline_info").toFile().mkdirs()
+    def samplesheet = user_file(params.samplesheet)
+    def sample_data = read_samplesheet(samplesheet)
+    def rows = sample_data.rows
+    def samples = sample_data.samples
     def refs = reference_inputs(params.reference_dir)
     def derived = derived_paths(params.reference_dir)
 
     def reuse = manifest_matches(derived, refs)
+    def replicate_samples = samples.count { sample, r1s, r2s, lane_count -> lane_count > 1 }
+
+    log.info "Samplesheet validation passed"
+    log.info "Rows: ${rows.size()}"
+    log.info "Biological samples: ${samples.size()}"
+    log.info "Paired-end FASTQ pairs: ${rows.size()}"
+    log.info "Technical replicate samples: ${replicate_samples}"
 
     if (params.validate_only) {
-        log.info "Validated ${rows.size()} sample(s) and the requested reference inputs."
         log.info reuse ? 'The existing Salmon index is compatible.' : 'The reference and index will be built.'
         return
     }
@@ -136,11 +192,12 @@ workflow {
         salmon_index = SALMON_INDEX.out.index
     }
 
-    SALMON_QUANT(Channel.fromList(rows), salmon_index)
-    quant_dirs = SALMON_QUANT.out.quant_dirs.map { sample, dir -> dir }
+    SALMON_QUANT(Channel.fromList(samples), salmon_index)
+    quant_dirs = SALMON_QUANT.out.quant_dirs.map { sample, lane_count, dir -> dir }
     TXIMPORT(quant_dirs.collect(), reference_gtf, samplesheet)
     ESTIMATED_COUNT_SUMMARY(quant_dirs.collect(), TXIMPORT.out.gene_counts, samplesheet)
+    SALMON_METRICS(quant_dirs.collect(), samplesheet)
 
-    reports = FASTQC.out.reports.mix(SALMON_QUANT.out.quant_dirs.map { sample, dir -> dir })
+    reports = FASTQC.out.reports.mix(SALMON_QUANT.out.quant_dirs.map { sample, lane_count, dir -> dir })
     MULTIQC(reports.collect())
 }

@@ -1,3 +1,4 @@
 sample,fastq_1,fastq_2
-UDB001,/absolute/path/to/UDB001_R1.fastq.gz,/absolute/path/to/UDB001_R2.fastq.gz
+UDB001,/absolute/path/to/UDB001_L001_R1.fastq.gz,/absolute/path/to/UDB001_L001_R2.fastq.gz
+UDB001,/absolute/path/to/UDB001_L002_R1.fastq.gz,/absolute/path/to/UDB001_L002_R2.fastq.gz
 UDB003,/absolute/path/to/UDB003_R1.fastq.gz,/absolute/path/to/UDB003_R2.fastq.gz

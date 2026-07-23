@@ -22,19 +22,10 @@ jobs:
       - name: Configure and validate
         run: |
           nextflow config -profile conda >/dev/null
-          nextflow run . --samplesheet tests/fixtures/samplesheet.csv \
-            --reference_dir tests/fixtures/reference/raw --validate_only true -profile conda
+          bash tests/test_validation.sh
+          python3 tests/test_salmon_metrics.py
 
       - name: Complete stub run
         run: |
-          nextflow run . --samplesheet tests/fixtures/samplesheet.csv \
-            --reference_dir tests/fixtures/reference/raw --outdir test_results \
-            --rebuild_reference true --index_cpus 2 \
-            --index_memory '4 GB' --tximport_memory '4 GB' -profile conda -stub-run
-          test -s test_results/tximport/gene_counts.tsv
-          test -s test_results/tximport/gene_length.tsv
-          test -s test_results/summary/gene_count_summary.tsv
-          test -s test_results/summary/salmon_mapping_summary.tsv
-          test -s test_results/qc/multiqc/multiqc_report.html
-          test -s tests/fixtures/reference/derived/reference_manifest.tsv
+          bash tests/test_stub_workflow.sh
           git diff --check

@@ -1,3 +1,2 @@
 sample,fastq_1,fastq_2
 UDB001,tests/fixtures/fastqs/UDB001_R1.fastq,tests/fixtures/fastqs/UDB001_R2.fastq
-UDB003,tests/fixtures/fastqs/UDB003_R1.fastq,tests/fixtures/fastqs/UDB003_R2.fastq

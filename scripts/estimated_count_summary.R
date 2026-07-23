@@ -37,7 +37,7 @@ outdir <- value_after("--outdir")
 
 dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
 samples <- read_samplesheet(samplesheet)
-expected <- as.character(samples$sample)
+expected <- unique(as.character(samples$sample))
 
 counts <- fread(gene_counts, showProgress = FALSE)
 if (!"gene_id" %in% names(counts)) stop("gene_counts.tsv is missing gene_id", call. = FALSE)

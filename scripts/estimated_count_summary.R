@@ -68,6 +68,13 @@ summary <- data.table(
 )
 fwrite(summary, file.path(outdir, "estimated_count_summary.tsv"), sep = "\t")
 
+gene_summary <- data.table(
+  sample = expected,
+  total_estimated_fragments = colSums(mat),
+  genes_with_estimated_count_gt_0 = colSums(mat > 0)
+)
+fwrite(gene_summary, file.path(outdir, "gene_count_summary.tsv"), sep = "\t")
+
 mapping_rows <- lapply(expected, function(sample) {
   qdir <- quant_dirs[basename(quant_dirs) == sample]
   if (length(qdir) != 1) stop("Expected exactly one quantification directory for sample: ", sample, call. = FALSE)

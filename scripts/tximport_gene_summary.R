@@ -87,18 +87,23 @@ if (overlap_fraction < 0.50) {
 txi <- tximport(quant_paths, type = "salmon", tx2gene = tx2gene, countsFromAbundance = "no")
 counts <- as.data.table(txi$counts, keep.rownames = "gene_id")
 abundance <- as.data.table(txi$abundance, keep.rownames = "gene_id")
+lengths <- as.data.table(txi$length, keep.rownames = "gene_id")
 
 setorderv(counts, "gene_id")
 setorderv(abundance, "gene_id")
+setorderv(lengths, "gene_id")
 setcolorder(counts, c("gene_id", expected))
 setcolorder(abundance, c("gene_id", expected))
+setcolorder(lengths, c("gene_id", expected))
 
 mat <- as.matrix(counts[, ..expected])
 if (!is.numeric(mat) || any(!is.finite(mat))) stop("Gene estimated-count matrix contains non-finite values", call. = FALSE)
 
 fwrite(counts, file.path(outdir, "gene_counts.tsv"), sep = "\t")
 fwrite(abundance, file.path(outdir, "gene_abundance.tsv"), sep = "\t")
+fwrite(lengths, file.path(outdir, "gene_length.tsv"), sep = "\t")
 fwrite(tx2gene[order(transcript_id)], file.path(outdir, "tx2gene.tsv"), sep = "\t")
+fwrite(samples, file.path(outdir, "sample_metadata.tsv"), sep = "\t")
 fwrite(data.table(
   metric = c("samples", "genes", "transcripts_in_quant", "transcripts_in_gtf", "transcript_overlap", "transcript_overlap_fraction", "countsFromAbundance"),
   value = c(length(expected), nrow(counts), length(observed_tx), nrow(tx2gene), overlap, sprintf("%.6f", overlap_fraction), "no")

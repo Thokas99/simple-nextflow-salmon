@@ -10,13 +10,27 @@ It does not trim, align, filter, normalize, test differential expression, or int
 
 ## Quick Start
 
-Local clone:
+### Local Clone
 
 ```bash
+# Download the workflow
+git clone https://github.com/Thokas99/simple-nextflow-salmon.git
+cd simple-nextflow-salmon
+
+# Optional: create the samplesheet from paired FASTQ filenames
 python3 scripts/make_samplesheet.py \
   /absolute/path/to/fastqs \
   -o /absolute/path/to/samplesheet.csv
 
+# Check the samplesheet and reference paths without running any process
+nextflow run . \
+  --samplesheet /absolute/path/to/samplesheet.csv \
+  --reference_dir /absolute/path/to/reference/GRCh38_GENCODE/raw \
+  --outdir /absolute/path/to/results \
+  --validate_only true \
+  -profile conda
+
+# Run the workflow
 nextflow run . \
   --samplesheet /absolute/path/to/samplesheet.csv \
   --reference_dir /absolute/path/to/reference/GRCh38_GENCODE/raw \
@@ -25,7 +39,9 @@ nextflow run . \
   -resume
 ```
 
-GitHub release:
+### GitHub Release
+
+After a release tag has been created:
 
 ```bash
 nextflow run Thokas99/simple-nextflow-salmon \
@@ -37,7 +53,7 @@ nextflow run Thokas99/simple-nextflow-salmon \
   -resume
 ```
 
-Nextflow downloads the workflow code from GitHub, while the FASTQs, reference files and results remain on the machine where the command is launched. Create a release tag only after the simplified workflow is merged and validated.
+Replace `<RELEASE_TAG>` with an existing tag from the [releases page](https://github.com/Thokas99/simple-nextflow-salmon/releases). Nextflow downloads only the workflow code; FASTQs, reference files, work files, and results remain on the machine where the command is launched.
 
 ## Workflow
 

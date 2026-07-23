@@ -20,6 +20,7 @@ title: "simple-nextflow-salmon report"
 module_order:
   - fastqc
   - salmon
+data_dir_name: multiqc_data
 EOF
     multiqc multiqc_inputs --config multiqc_config.yml --outdir . --filename multiqc_report.html --force
     """

@@ -4,9 +4,9 @@ channels:
   - bioconda
 channel_priority: strict
 dependencies:
-  - salmon=1.10.3
+  - salmon=2.3.4
   - fastqc=0.12.1
-  - multiqc=1.30
+  - multiqc=1.35
   - seqkit=2.10.0
   - python=3.11
   - r-base=4.4

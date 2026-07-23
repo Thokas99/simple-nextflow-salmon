@@ -72,7 +72,7 @@ def main() -> int:
     if args.json:
         print(json.dumps({"samplesheet": str(args.out.resolve()), "samples": len(rows)}))
     else:
-        print(f"Wrote {len(rows)} sample(s) to {args.out}")
+        print(f"Wrote {len(rows)} sample(s) to {args.out.resolve()}")
         print("Inspect this file before running the full pipeline.")
     return 0
 

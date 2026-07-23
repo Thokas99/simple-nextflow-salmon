@@ -4,17 +4,13 @@ channels:
   - bioconda
 channel_priority: strict
 dependencies:
-  - salmon
-  - fastqc
-  - multiqc
-  - seqkit
-  - pigz
-  - samtools
-  - r-base
-  - r-tidyverse
-  - r-data.table
-  - r-readr
-  - r-jsonlite
-  - bioconductor-tximport
-  - bioconductor-rhdf5
-  - bioconductor-biocparallel
+  - python=3.11
+  - pytest=8.3
+  - salmon=1.10.3
+  - fastqc=0.12.1
+  - multiqc=1.30
+  - seqkit=2.10.0
+  - r-base=4.4
+  - r-data.table=1.16
+  - r-jsonlite=1.8
+  - bioconductor-tximport=1.34

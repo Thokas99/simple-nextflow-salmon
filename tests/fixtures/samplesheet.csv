@@ -1,0 +1,3 @@
+sample,fastq_1,fastq_2
+UDB001,tests/fixtures/fastqs/UDB001_R1.fastq.gz,tests/fixtures/fastqs/UDB001_R2.fastq.gz
+UDB003,tests/fixtures/fastqs/UDB003_R1.fastq.gz,tests/fixtures/fastqs/UDB003_R2.fastq.gz

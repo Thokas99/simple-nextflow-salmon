@@ -1,11 +1,11 @@
 process SALMON_INDEX {
     tag "k=${params.salmon_k}"
-    publishDir "${params.reference_dir}/../derived", mode: 'copy', overwrite: true
+    publishDir { cache_dir }, mode: 'copy', overwrite: true
     cpus { params.index_cpus }
     memory { params.index_memory }
 
     input:
-    tuple path(gentrome), path(decoys), path(gtf)
+    tuple path(gentrome), path(decoys), path(gtf), val(cache_dir)
 
     output:
     tuple path('salmon_index'), path('reference_manifest.tsv'), emit: index
@@ -30,7 +30,10 @@ process SALMON_INDEX {
     stub:
     """
     mkdir -p salmon_index
-    echo '{}' > salmon_index/info.json
+    for name in index.ctab index.ectab index.refinfo index.ssi refseq.bin refseq_offsets.json; do
+      echo stub > salmon_index/\$name
+    done
+    echo '{"salmon_version":"${params.salmon_version}","k":${params.salmon_k},"has_ec_table":true,"num_refs":1,"num_decoys":1}' > salmon_index/info.json
     printf 'field\tvalue\n' > reference_manifest.tsv
     printf 'gencode_release\t%s\n' '${params.gencode_release}' >> reference_manifest.tsv
     printf 'genome_patch\t%s\n' '${params.genome_patch}' >> reference_manifest.tsv
@@ -40,6 +43,5 @@ process SALMON_INDEX {
     printf 'salmon_version\t%s\n' '${params.salmon_version}' >> reference_manifest.tsv
     printf 'salmon_k\t%s\n' '${params.salmon_k}' >> reference_manifest.tsv
     printf 'index_options\t--gencode\n' >> reference_manifest.tsv
-    touch annotation.gtf.gz
     """
 }

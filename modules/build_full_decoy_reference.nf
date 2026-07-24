@@ -1,14 +1,14 @@
 process BUILD_FULL_DECOY_REFERENCE {
     tag "GENCODE v${params.gencode_release} / GRCh38.p${params.genome_patch}"
-    publishDir "${params.reference_dir}/../derived", mode: 'copy', overwrite: true
+    publishDir { cache_dir }, mode: 'copy', overwrite: true
     cpus { params.reference_cpus }
     memory { params.reference_memory }
 
     input:
-    tuple path(tx_fasta), path(genome_fasta), path(gtf)
+    tuple path(tx_fasta), path(genome_fasta), path(gtf), val(cache_dir)
 
     output:
-    tuple path('gentrome.fa'), path('decoys.txt'), path('annotation.gtf.gz'), emit: reference_files
+    tuple path('gentrome.fa'), path('decoys.txt'), path('annotation.gtf.gz'), val(cache_dir), emit: reference_files
 
     script:
     """
@@ -25,6 +25,8 @@ process BUILD_FULL_DECOY_REFERENCE {
 
     stub:
     """
-    touch gentrome.fa decoys.txt annotation.gtf.gz
+    echo '>stub' > gentrome.fa
+    echo 'stub' > decoys.txt
+    echo 'stub' > annotation.gtf.gz
     """
 }

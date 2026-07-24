@@ -139,6 +139,21 @@ GRCh38_GENCODE/
     └── reference_manifest.tsv
 ```
 
+By default, derived artifacts are stored in `<reference_dir>/../derived`. Set `--reference_cache_dir` to keep them elsewhere, for example on a local SSD while raw reference files remain on a NAS:
+
+```bash
+nextflow run . \
+  --samplesheet /nas/project/samplesheet.csv \
+  --reference_dir /nas/reference/GRCh38_GENCODE/raw \
+  --reference_cache_dir /local/ssd/reference/GRCh38_GENCODE/derived \
+  --outdir /local/ssd/project/results \
+  -work-dir /local/ssd/project/work \
+  -profile conda \
+  -resume
+```
+
+This reads FASTQs and raw reference inputs from the NAS while the reusable reference cache, Nextflow work directory, and results remain on the SSD. Final results are not copied back automatically.
+
 The transcript and genome FASTAs are decompressed, checked for duplicate identifiers, and concatenated in that order. Genome identifiers become decoys, every decoy is checked against the gentrome, and Salmon builds the index with `--gencode`.
 
 Before each run, the workflow checks that all five derived artifacts are non-empty; the Salmon index contains its core Piscem files; `info.json` reports the expected Salmon version, k-mer size, references, decoys, and equivalence-class table; and the manifest matches the requested GENCODE release, genome patch, filenames, Salmon version, k-mer size, and `--gencode` option. A complete compatible reference is reused. Otherwise, only these known derived artifacts are removed and rebuilt automatically. Multi-gigabyte files are not checksummed on every launch.
@@ -149,11 +164,14 @@ Before each run, the workflow checks that all five derived artifacts are non-emp
 | --- | --- | --- |
 | `--samplesheet` | required | CSV with `sample,fastq_1,fastq_2` |
 | `--reference_dir` | `reference/GRCh38_GENCODE/raw` | Raw GENCODE reference directory |
+| `--reference_cache_dir` | `<reference_dir>/../derived` | Derived reference and Salmon index directory |
 | `--outdir` | `results` | Results directory |
 | `--gencode_release` | `50` | GENCODE release |
 | `--genome_patch` | `14` | GRCh38 patch |
 | `--salmon_k` | `31` | Salmon index k-mer size |
 | `--lib_type` | `A` | Salmon library type |
+| `--salmon_cpus` | `8` | CPUs per Salmon quantification |
+| `--salmon_memory` | `16 GB` | Memory per Salmon quantification |
 | `--validate_only` | `false` | Validate inputs without running processes |
 
 User inputs and outputs may be absolute or relative to the launch directory. `projectDir` is used only for workflow modules, scripts, and the Conda YAML bundled with the repository.
@@ -172,7 +190,6 @@ User inputs and outputs may be absolute or relative to the launch directory. `pr
 | Gene effective length | `results/tximport/gene_length.tsv` |
 | tximport object | `results/tximport/tximport_object.rds` |
 | Sample metadata | `results/tximport/sample_metadata.tsv` |
-| Mapping QC | `results/summary/salmon_mapping_summary.tsv` |
 | Estimated-count QC | `results/summary/estimated_count_summary.tsv` |
 | Per-sample gene-count QC | `results/summary/gene_count_summary.tsv` |
 | Execution report | `results/pipeline_info/execution_report.html` |

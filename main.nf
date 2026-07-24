@@ -106,9 +106,9 @@ def reference_inputs(raw_dir) {
     ]
 }
 
-def derived_paths(raw_dir) {
+def derived_paths(raw_dir, cache_dir) {
     def raw = user_file(raw_dir, true)
-    def dir = raw.parent.resolve('derived')
+    def dir = cache_dir ? user_file(cache_dir) : raw.parent.resolve('derived')
     [dir, dir.resolve('gentrome.fa'), dir.resolve('decoys.txt'),
      dir.resolve('annotation.gtf.gz'), dir.resolve('salmon_index'),
      dir.resolve('reference_manifest.tsv')]
@@ -125,27 +125,35 @@ def manifest_matches(paths, refs) {
     def files = [paths[1], paths[2], paths[3], paths[5]]
     def index_files = ['index.ctab', 'index.ectab', 'index.refinfo', 'index.ssi',
                        'refseq.bin', 'refseq_offsets.json', 'info.json']
-    if (!files.every { it.isFile() && it.toFile().length() > 0 } || !paths[4].isDirectory() ||
-        !index_files.every { name -> paths[4].resolve(name).isFile() && paths[4].resolve(name).toFile().length() > 0 }) return false
+    try {
+        if (!files.every { it.isFile() && it.toFile().canRead() && it.toFile().length() > 0 } || !paths[4].isDirectory() ||
+            !index_files.every { name -> paths[4].resolve(name).isFile() && paths[4].resolve(name).toFile().canRead() && paths[4].resolve(name).toFile().length() > 0 }) return false
 
-    def info = new groovy.json.JsonSlurper().parse(paths[4].resolve('info.json').toFile())
-    if (info.salmon_version != params.salmon_version || info.k != params.salmon_k ||
-        !info.has_ec_table || info.num_refs <= 0 || info.num_decoys <= 0) return false
-    def manifest = paths[5].readLines().drop(1).collectEntries { line ->
-        def fields = line.split('\t', 2)
-        fields.size() == 2 ? [(fields[0]): fields[1]] : [:]
+        def info = new groovy.json.JsonSlurper().parse(paths[4].resolve('info.json').toFile())
+        if (!(info instanceof Map) || !(info.salmon_version instanceof String) || !(info.k instanceof Number) ||
+            !(info.has_ec_table instanceof Boolean) || !(info.num_refs instanceof Number) || !(info.num_decoys instanceof Number) ||
+            info.salmon_version != params.salmon_version || info.k != params.salmon_k ||
+            !info.has_ec_table || info.num_refs <= 0 || info.num_decoys <= 0) return false
+
+        def lines = paths[5].readLines()
+        if (!lines || lines[0] != 'field\tvalue') return false
+        def entries = lines.drop(1).collect { it.split('\t', -1) }
+        if (!entries.every { it.size() == 2 && it[0] && it[1] } || entries.collect { it[0] }.toSet().size() != entries.size()) return false
+        def manifest = entries.collectEntries { [(it[0]): it[1]] }
+        def expected = [
+            gencode_release: params.gencode_release.toString(),
+            genome_patch: params.genome_patch.toString(),
+            transcript_fasta: refs[0].name,
+            genome_fasta: refs[1].name,
+            gtf: refs[2].name,
+            salmon_version: params.salmon_version.toString(),
+            salmon_k: params.salmon_k.toString(),
+            index_options: '--gencode'
+        ]
+        expected.every { key, value -> manifest[key] == value }
+    } catch (Exception ignored) {
+        false
     }
-    def expected = [
-        gencode_release: params.gencode_release.toString(),
-        genome_patch: params.genome_patch.toString(),
-        transcript_fasta: refs[0].name,
-        genome_fasta: refs[1].name,
-        gtf: refs[2].name,
-        salmon_version: params.salmon_version.toString(),
-        salmon_k: params.salmon_k.toString(),
-        index_options: '--gencode'
-    ]
-    expected.every { key, value -> manifest[key] == value }
 }
 
 workflow {
@@ -158,7 +166,7 @@ workflow {
     def rows = sample_data.rows
     def samples = sample_data.samples
     def refs = reference_inputs(params.reference_dir)
-    def derived = derived_paths(params.reference_dir)
+    def derived = derived_paths(params.reference_dir, params.reference_cache_dir)
 
     def reuse = manifest_matches(derived, refs)
     def replicate_samples = samples.count { sample, r1s, r2s, lane_count -> lane_count > 1 }
@@ -169,13 +177,16 @@ workflow {
     log.info "Paired-end FASTQ pairs: ${rows.size()}"
     log.info "Technical replicate samples: ${replicate_samples}"
 
+    if (!reuse && derived.drop(1).any { it.exists() }) {
+        log.warn "The derived reference in ${derived[0]} is incompatible and will be rebuilt"
+    }
+
     if (params.validate_only) {
         log.info reuse ? 'The existing Salmon index is compatible.' : 'The reference and index will be built.'
         return
     }
 
     if (!reuse && derived.drop(1).any { it.exists() }) {
-        log.warn "Removing incomplete or incompatible derived reference in ${derived[0]}"
         clean_derived(derived)
     }
 
@@ -186,7 +197,8 @@ workflow {
         reference_gtf = Channel.value(file(derived[3]))
         salmon_index = Channel.value(tuple(file(derived[4]), file(derived[5])))
     } else {
-        BUILD_FULL_DECOY_REFERENCE(Channel.value(tuple(refs[0], refs[1], refs[2])))
+        derived[0].toFile().mkdirs()
+        BUILD_FULL_DECOY_REFERENCE(Channel.value(tuple(refs[0], refs[1], refs[2], derived[0])))
         SALMON_INDEX(BUILD_FULL_DECOY_REFERENCE.out.reference_files)
         reference_gtf = SALMON_INDEX.out.reference_gtf
         salmon_index = SALMON_INDEX.out.index
@@ -194,9 +206,10 @@ workflow {
 
     SALMON_QUANT(Channel.fromList(samples), salmon_index)
     quant_dirs = SALMON_QUANT.out.quant_dirs.map { sample, lane_count, dir -> dir }
-    TXIMPORT(quant_dirs.collect(), reference_gtf, samplesheet)
-    ESTIMATED_COUNT_SUMMARY(quant_dirs.collect(), TXIMPORT.out.gene_counts, samplesheet)
-    SALMON_METRICS(quant_dirs.collect(), samplesheet)
+    all_quant_dirs = quant_dirs.collect()
+    TXIMPORT(all_quant_dirs, reference_gtf, samplesheet)
+    ESTIMATED_COUNT_SUMMARY(all_quant_dirs, TXIMPORT.out.gene_counts, samplesheet)
+    SALMON_METRICS(all_quant_dirs, samplesheet)
 
     reports = FASTQC.out.reports.mix(SALMON_QUANT.out.quant_dirs.map { sample, lane_count, dir -> dir })
     MULTIQC(reports.collect())

@@ -12,12 +12,10 @@ process ESTIMATED_COUNT_SUMMARY {
     output:
     path "estimated_count_summary.tsv", emit: estimated_count_summary
     path "gene_count_summary.tsv", emit: gene_count_summary
-    path "salmon_mapping_summary.tsv", emit: salmon_mapping_summary
 
     script:
     """
     Rscript ${projectDir}/scripts/estimated_count_summary.R \\
-      --quant_dirs ${quant_dirs.join(' ')} \\
       --gene_counts ${gene_counts} \\
       --samplesheet ${samplesheet} \\
       --outdir .
@@ -34,11 +32,6 @@ EOF
 sample	total_estimated_fragments	genes_with_estimated_count_gt_0
 UDB001	10.5	1
 UDB003	20.25	1
-EOF
-    cat > salmon_mapping_summary.tsv <<'EOF'
-sample	num_processed	num_mapped	percent_mapped
-UDB001	1000	800	80
-UDB003	1000	810	81
 EOF
     """
 }

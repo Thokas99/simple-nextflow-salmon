@@ -13,8 +13,6 @@ process MULTIQC {
 
     script:
     """
-    mkdir -p multiqc_inputs
-    cp -r ${inputs.join(' ')} multiqc_inputs/
     cat > multiqc_config.yml <<'EOF'
 title: "simple-nextflow-salmon report"
 module_order:
@@ -22,7 +20,7 @@ module_order:
   - salmon
 data_dir_name: multiqc_data
 EOF
-    multiqc multiqc_inputs --config multiqc_config.yml --outdir . --filename multiqc_report.html --force
+    multiqc . --config multiqc_config.yml --outdir . --filename multiqc_report.html --force
     """
 
     stub:

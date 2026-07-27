@@ -99,13 +99,13 @@ setcolorder(lengths, c("gene_id", expected))
 mat <- as.matrix(counts[, ..expected])
 if (!is.numeric(mat) || any(!is.finite(mat))) stop("Gene estimated-count matrix contains non-finite values", call. = FALSE)
 
-fwrite(counts, file.path(outdir, "gene_counts.tsv"), sep = "\t")
-fwrite(abundance, file.path(outdir, "gene_abundance.tsv"), sep = "\t")
-fwrite(lengths, file.path(outdir, "gene_length.tsv"), sep = "\t")
+fwrite(counts, file.path(outdir, "salmon_gene_estimated_counts.tsv"), sep = "\t")
+fwrite(abundance, file.path(outdir, "salmon_gene_tpm.tsv"), sep = "\t")
+fwrite(lengths, file.path(outdir, "salmon_gene_average_effective_length.tsv"), sep = "\t")
 fwrite(tx2gene[order(transcript_id)], file.path(outdir, "tx2gene.tsv"), sep = "\t")
 fwrite(samples, file.path(outdir, "sample_metadata.tsv"), sep = "\t")
 fwrite(data.table(
   metric = c("samples", "genes", "transcripts_in_quant", "transcripts_in_gtf", "transcript_overlap", "transcript_overlap_fraction", "countsFromAbundance"),
   value = c(length(expected), nrow(counts), length(observed_tx), nrow(tx2gene), overlap, sprintf("%.6f", overlap_fraction), "no")
 ), file.path(outdir, "tximport_summary.tsv"), sep = "\t")
-saveRDS(txi, file.path(outdir, "tximport_object.rds"))
+saveRDS(txi, file.path(outdir, "salmon_gene_tximport.rds"), compress = "xz")

@@ -6,7 +6,7 @@ process ESTIMATED_COUNT_SUMMARY {
 
     input:
     path quant_dirs
-    path gene_counts
+    path gene_estimated_counts
     path samplesheet
 
     output:
@@ -16,7 +16,7 @@ process ESTIMATED_COUNT_SUMMARY {
     script:
     """
     Rscript ${projectDir}/scripts/estimated_count_summary.R \\
-      --gene_counts ${gene_counts} \\
+        --gene_estimated_counts ${gene_estimated_counts} \\
       --samplesheet ${samplesheet} \\
       --outdir .
     """

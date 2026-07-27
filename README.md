@@ -10,6 +10,21 @@ It builds or reuses a GENCODE full-decoy Salmon index, quantifies paired-end rea
 
 It deliberately does not run alignment, BAM generation, trimming, cloud execution, containers, differential expression, integerized count matrices, or Salmon bootstraps/Gibbs sampling.
 
+```mermaid
+flowchart LR
+  S[Samplesheet] --> F[FastQC]
+  S --> Q[Salmon quant]
+  R[GENCODE FASTA/GTF] --> D[Full-decoy reference]
+  D --> I[Salmon index]
+  I --> Q
+  Q --> T[tximport]
+  Q --> M[MultiQC]
+  F --> M
+  T --> O[Gene TSVs and tximport RDS]
+  Q --> C[QC summaries]
+  T --> C
+```
+
 ## Requirements
 
 - Nextflow `>=24.10.0`
@@ -120,6 +135,7 @@ nextflow run . -profile conda \
 | `results/tximport/salmon_gene_tpm.tsv` | Gene-level TPM values from `txi$abundance` |
 | `results/tximport/salmon_gene_average_effective_length.tsv` | Gene-level average effective lengths from `txi$length` |
 | `results/tximport/tx2gene.tsv` | Transcript-to-gene map used for import |
+| `results/tximport/gene_annotation.tsv` | Gene ID to GENCODE gene symbol mapping |
 | `results/tximport/sample_metadata.tsv` | Samples included in tximport |
 | `results/tximport/tximport_summary.tsv` | tximport sample/gene/transcript summary |
 | `results/summary/estimated_count_summary.tsv` | Sample-level summary of estimated counts and Salmon mapping metrics |
@@ -127,7 +143,9 @@ nextflow run . -profile conda \
 | `results/qc/multiqc/multiqc_report.html` | MultiQC report |
 | `results/pipeline_info/` | Nextflow report, timeline, trace, and DAG |
 
-tximport is run with `countsFromAbundance = "no"`. Estimated counts are probabilistic fragment-allocation estimates from Salmon and may be fractional; they are not directly observed integer read totals. TPM is normalized relative expression and is not an input for count-based differential-expression testing. Average effective lengths are used by tximport-aware differential-expression interfaces.
+tximport is run with `countsFromAbundance = "no"`. The three portable gene-level TSVs start with `gene_id`, the stable versioned GENCODE Ensembl identifier, followed by `gene_name`, the convenient GENCODE gene symbol. Gene names may not be globally unique, so downstream joins and differential-expression objects should keep `gene_id` as the primary key. The RDS remains indexed by `gene_id`.
+
+Estimated counts are probabilistic fragment-allocation estimates from Salmon and may be fractional; they are not directly observed integer read totals. TPM is normalized relative expression and is not an input for count-based differential-expression testing. Average effective lengths are used by tximport-aware differential-expression interfaces.
 
 ## Downstream Analysis
 

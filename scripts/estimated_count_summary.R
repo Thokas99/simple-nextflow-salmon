@@ -17,7 +17,7 @@ read_samplesheet <- function(path) {
   fread(path, sep = sep, na.strings = character(), showProgress = FALSE)
 }
 
-gene_counts <- value_after("--gene_counts")
+gene_estimated_counts <- value_after("--gene_estimated_counts")
 samplesheet <- value_after("--samplesheet")
 outdir <- value_after("--outdir")
 
@@ -25,10 +25,10 @@ dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
 samples <- read_samplesheet(samplesheet)
 expected <- unique(as.character(samples$sample))
 
-counts <- fread(gene_counts, showProgress = FALSE)
-if (!"gene_id" %in% names(counts)) stop("gene_counts.tsv is missing gene_id", call. = FALSE)
+counts <- fread(gene_estimated_counts, showProgress = FALSE)
+if (!"gene_id" %in% names(counts)) stop("salmon_gene_estimated_counts.tsv is missing gene_id", call. = FALSE)
 missing_cols <- setdiff(expected, names(counts))
-if (length(missing_cols)) stop("gene_counts.tsv missing sample column(s): ", paste(missing_cols, collapse = ", "), call. = FALSE)
+if (length(missing_cols)) stop("salmon_gene_estimated_counts.tsv missing sample column(s): ", paste(missing_cols, collapse = ", "), call. = FALSE)
 
 mat <- as.matrix(counts[, ..expected])
 mode(mat) <- "numeric"

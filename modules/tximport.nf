@@ -10,12 +10,12 @@ process TXIMPORT {
     path samplesheet
 
     output:
-    path "gene_counts.tsv", emit: gene_counts
-    path "gene_abundance.tsv", emit: gene_abundance
-    path "gene_length.tsv", emit: gene_length
+    path "salmon_gene_estimated_counts.tsv", emit: gene_estimated_counts
+    path "salmon_gene_tpm.tsv", emit: gene_tpm
+    path "salmon_gene_average_effective_length.tsv", emit: gene_average_effective_length
     path "tx2gene.tsv", emit: tx2gene
     path "tximport_summary.tsv", emit: summary
-    path "tximport_object.rds", emit: tximport_object
+    path "salmon_gene_tximport.rds", emit: gene_tximport
     path "sample_metadata.tsv", emit: sample_metadata
 
     script:
@@ -31,9 +31,9 @@ process TXIMPORT {
     """
     samples=\$(awk -F, 'NR > 1 && !seen[\$1]++ { printf "%s%s", sep, \$1; sep="\\t" }' ${samplesheet})
     values=\$(awk -F, 'NR > 1 && !seen[\$1]++ { printf "%s10.5", sep; sep="\\t" }' ${samplesheet})
-    printf 'gene_id\t%s\nENSG000001.1\t%s\n' "\$samples" "\$values" > gene_counts.tsv
-    printf 'gene_id\t%s\nENSG000001.1\t%s\n' "\$samples" "\$values" > gene_abundance.tsv
-    printf 'gene_id\t%s\nENSG000001.1\t%s\n' "\$samples" "\$values" > gene_length.tsv
+    printf 'gene_id\t%s\nENSG000001.1\t%s\n' "\$samples" "\$values" > salmon_gene_estimated_counts.tsv
+    printf 'gene_id\t%s\nENSG000001.1\t%s\n' "\$samples" "\$values" > salmon_gene_tpm.tsv
+    printf 'gene_id\t%s\nENSG000001.1\t%s\n' "\$samples" "\$values" > salmon_gene_average_effective_length.tsv
     cat > tx2gene.tsv <<'EOF'
 transcript_id	gene_id
 ENST000001.1	ENSG000001.1
@@ -42,7 +42,7 @@ EOF
     metric	value
     countsFromAbundance	no
 EOF
-    touch tximport_object.rds
+    touch salmon_gene_tximport.rds
     awk -F, 'BEGIN { OFS="\\t" } { print \$1, \$2, \$3 }' ${samplesheet} > sample_metadata.tsv
     """
 }

@@ -208,7 +208,7 @@ workflow {
     quant_dirs = SALMON_QUANT.out.quant_dirs.map { sample, lane_count, dir -> dir }
     all_quant_dirs = quant_dirs.collect()
     TXIMPORT(all_quant_dirs, reference_gtf, samplesheet)
-    ESTIMATED_COUNT_SUMMARY(all_quant_dirs, TXIMPORT.out.gene_counts, samplesheet)
+    ESTIMATED_COUNT_SUMMARY(all_quant_dirs, TXIMPORT.out.gene_estimated_counts, samplesheet)
     SALMON_METRICS(all_quant_dirs, samplesheet)
 
     reports = FASTQC.out.reports.mix(SALMON_QUANT.out.quant_dirs.map { sample, lane_count, dir -> dir })

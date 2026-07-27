@@ -20,6 +20,9 @@ process SALMON_QUANT {
       -1 ${r1.join(' ')} \\
       -2 ${r2.join(' ')} \\
       -p ${task.cpus} \\
+      --deterministic \\
+      --seqBias \\
+      --gcBias \\
       -o ${sample}
     """
 

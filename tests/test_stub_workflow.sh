@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
 repo_dir=$(cd "$(dirname "$0")/.." && pwd)
 tmp_dir=$(mktemp -d)
 trap 'rm -rf "$tmp_dir"' EXIT
+trap 'status=$?; trap - ERR; echo "stub workflow test failed at line $LINENO" >&2; for log in "$tmp_dir"/*.log; do test -f "$log" && { echo "--- $log" >&2; cat "$log" >&2; }; done; exit "$status"' ERR
 cd "$repo_dir"
 
 nextflow config -profile conda >/dev/null
@@ -35,10 +36,10 @@ test "$(awk -F '\t' '$3 == "SALMON_QUANT" { count++ } END { print count+0 }' "$t
 test "$(awk -F '\t' '$3 == "FASTQC" { count++ } END { print count+0 }' "$trace")" -eq 4
 test "$(awk -F '\t' 'NR > 1 { count++ } END { print count+0 }' "$tmp_dir/results-fresh/qc/salmon_metrics.tsv")" -eq 3
 test "$(awk -F '\t' '$1 == "A" { print $9 }' "$tmp_dir/results-fresh/qc/salmon_metrics.tsv")" -eq 2
-test "$(awk -F '\t' 'NR == 1 { print NF }' "$tmp_dir/results-fresh/tximport/gene_counts.tsv")" -eq 4
+test "$(awk -F '\t' 'NR == 1 { print NF }' "$tmp_dir/results-fresh/tximport/salmon_gene_estimated_counts.tsv")" -eq 4
 test -s "$tmp_dir/results-fresh/qc/multiqc/multiqc_report.html"
 test -s "$tmp_dir/results-fresh/qc/multiqc/multiqc_data/multiqc_data.json"
-test -s "$tmp_dir/results-fresh/tximport/gene_counts.tsv"
+test -s "$tmp_dir/results-fresh/tximport/salmon_gene_estimated_counts.tsv"
 test -s "$tmp_dir/results-fresh/qc/salmon_metrics.tsv"
 test ! -e "$tmp_dir/results-fresh/summary/salmon_mapping_summary.tsv"
 test -s "$tmp_dir/cache/gentrome.fa"

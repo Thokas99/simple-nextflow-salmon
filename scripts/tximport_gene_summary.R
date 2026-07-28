@@ -70,7 +70,8 @@ tx_lines <- gtf_lines[grepl("\ttranscript\t", gtf_lines, fixed = TRUE)]
 tx_annotation <- data.table(
   transcript_id = parse_attr(tx_lines, "transcript_id"),
   gene_id = parse_attr(tx_lines, "gene_id"),
-  gene_name = parse_attr(tx_lines, "gene_name")
+  gene_name = parse_attr(tx_lines, "gene_name"),
+  gene_type = parse_attr(tx_lines, "gene_type")
 )
 tx2gene <- unique(
   tx_annotation[

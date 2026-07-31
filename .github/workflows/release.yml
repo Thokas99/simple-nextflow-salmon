@@ -1,0 +1,66 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: nf-core/setup-nextflow@98e3b21a1c45e26529208849ec20e5cfb7086040 # v2
+        with:
+          version: '26.04.6'
+      - uses: mamba-org/setup-micromamba@add3a49764cedee8ee24e82dfde87f5bc2914462 # v2
+        with:
+          environment-file: envs/salmon-rnaseq.yml
+          cache-environment: true
+      - name: Verify release declarations
+        id: version
+        run: |
+          version=$(tr -d '[:space:]' < VERSION)
+          echo "value=${version}" >> "$GITHUB_OUTPUT"
+          test "${GITHUB_REF_NAME}" = "v${version}"
+          grep -q "^version: [\"']\?${version}[\"']\?$" CITATION.cff
+          grep -q "version *= *'${version}'" nextflow.config
+          grep -q "image.version=\"${version}\"" Containerfile
+          grep -q "^## \[${version}\]" CHANGELOG.md
+      - name: Release tests
+        run: |
+          python3 -m unittest discover -s tests -p 'test_*.py'
+          bash tests/test_validation.sh
+          bash tests/test_stub_workflow.sh
+          bash tests/test_real_workflow.sh
+          NXF_SYNTAX_PARSER=v2 nextflow lint .
+          git diff --check
+      - name: Build source artifact and notes
+        run: |
+          version=$(cat VERSION)
+          git archive --format=tar.gz --prefix="simple-nextflow-salmon-${version}/" \
+            -o "simple-nextflow-salmon-${version}.tar.gz" HEAD
+          awk -v version="$version" '$0 == "## [" version "] - 2026-07-31" {show=1; next} /^## \[/ && show {exit} show' CHANGELOG.md > release-notes.md
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: Containerfile
+          push: true
+          tags: ghcr.io/${{ github.repository }}:${{ steps.version.outputs.value }}
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          body_path: release-notes.md
+          files: simple-nextflow-salmon-*.tar.gz
+          generate_release_notes: true

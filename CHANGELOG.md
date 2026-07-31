@@ -1,0 +1,28 @@
+# Changelog
+
+All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).
+
+## [Unreleased]
+
+## [0.3.0] - 2026-07-31
+
+### Added
+
+- Lane-aware, recursive samplesheet generation with preview, overwrite protection, and explicit lane-as-sample mode.
+- Quoted-CSV validation, immutable SHA-256 reference caches, run provenance, Docker/Apptainer profiles, and real miniature workflow CI.
+- `sample_count_summary.tsv`, maintained parameter schema, release automation, and repository community files.
+
+### Changed
+
+- Standard Illumina lane files now share the biological sample prefix before `_S<number>_L<lane>`.
+- Reference caches are stored in fingerprinted subdirectories and are never automatically deleted.
+- `gene_count_summary.tsv` is a deprecated compatibility copy of `sample_count_summary.tsv`; it will be removed before 1.0.0.
+- Input validation is stricter and rejects ambiguous names, unsafe identifiers, repeated FASTQs, basename collisions, and shell-sensitive paths.
+
+### Compatibility
+
+- Scientific defaults remain Salmon 2.3.4, automatic library detection, `--deterministic`, `--seqBias`, `--gcBias`, and `countsFromAbundance = "no"`.
+- Use `--lanes-as-samples` only to preserve the pre-0.3 generator behavior for detected lanes.
+
+[Unreleased]: https://github.com/Thokas99/simple-nextflow-salmon/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/Thokas99/simple-nextflow-salmon/compare/v0.2.1...v0.3.0

@@ -54,9 +54,11 @@ summary <- data.table(
 )
 fwrite(summary, file.path(outdir, "estimated_count_summary.tsv"), sep = "\t")
 
-gene_summary <- data.table(
+sample_summary <- data.table(
   sample = expected,
   total_estimated_fragments = colSums(mat),
   genes_with_estimated_count_gt_0 = colSums(mat > 0)
 )
-fwrite(gene_summary, file.path(outdir, "gene_count_summary.tsv"), sep = "\t")
+fwrite(sample_summary, file.path(outdir, "sample_count_summary.tsv"), sep = "\t")
+# Deprecated compatibility copy; remove before v1.0.0.
+file.copy(file.path(outdir, "sample_count_summary.tsv"), file.path(outdir, "gene_count_summary.tsv"), overwrite = TRUE)

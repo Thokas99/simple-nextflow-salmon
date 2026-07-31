@@ -56,6 +56,32 @@ class SalmonMetricsTest(unittest.TestCase):
         self.assertEqual(rows[0]["frag_length_mean"], "")
         self.assertEqual(rows[0]["salmon_version"], "")
 
+    def run_failure(self, meta_text=None, sample="S1", quant_sample="S1"):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        root = Path(temp.name)
+        samplesheet = root / "samples.csv"
+        samplesheet.write_text(f"sample,fastq_1,fastq_2\n{sample},R1.fastq,R2.fastq\n")
+        aux = root / quant_sample / "aux_info"
+        aux.mkdir(parents=True)
+        if meta_text is not None:
+            (aux / "meta_info.json").write_text(meta_text)
+        return subprocess.run(
+            ["python3", str(SCRIPT), "--samplesheet", str(samplesheet), "--quant-dirs", str(root / quant_sample),
+             "--quant-output-dir", "results/salmon", "--output", str(root / "out.tsv")],
+            text=True, capture_output=True,
+        )
+
+    def test_missing_and_malformed_metadata_fail(self):
+        self.assertIn("missing Salmon meta_info.json", self.run_failure().stderr)
+        self.assertIn("malformed Salmon meta_info.json", self.run_failure("{bad").stderr)
+
+    def test_quant_directory_mismatch_fails(self):
+        result = self.run_failure("{}", sample="S1", quant_sample="other")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("missing quantification directory for: S1", result.stderr)
+        self.assertIn("unexpected quantification directory for: other", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

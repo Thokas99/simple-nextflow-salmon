@@ -21,9 +21,7 @@ reject() {
 validate tests/fixtures/samplesheet_single.csv single
 validate tests/fixtures/samplesheet.csv standard
 validate tests/fixtures/samplesheet_technical_replicates.csv technical
-grep -q 'Rows: 2' "$tmp_dir/technical.log"
-grep -q 'Biological samples: 1' "$tmp_dir/technical.log"
-grep -q 'Technical replicate samples: 1' "$tmp_dir/technical.log"
+grep -q '1 biological samples, 2 FASTQ pairs, 1 technical-replicate samples' "$tmp_dir/technical.log"
 
 cat >"$tmp_dir/missing.csv" <<EOF
 sample,fastq_1,fastq_2
@@ -35,7 +33,7 @@ grep -q 'file not found' "$tmp_dir/missing.log"
 cp tests/fixtures/samplesheet_single.csv "$tmp_dir/duplicate.csv"
 tail -n 1 tests/fixtures/samplesheet_single.csv >>"$tmp_dir/duplicate.csv"
 reject "$tmp_dir/duplicate.csv" duplicate
-grep -q 'duplicate samplesheet row' "$tmp_dir/duplicate.log"
+grep -q 'duplicate samplesheet row\|repeated within sample' "$tmp_dir/duplicate.log"
 
 cat >"$tmp_dir/reassigned.csv" <<EOF
 sample,fastq_1,fastq_2
@@ -43,13 +41,13 @@ A,$repo_dir/tests/fixtures/fastqs/UDB001_R1.fastq,$repo_dir/tests/fixtures/fastq
 B,$repo_dir/tests/fixtures/fastqs/UDB001_R1.fastq,$repo_dir/tests/fixtures/fastqs/UDB003_R2.fastq
 EOF
 reject "$tmp_dir/reassigned.csv" reassigned
-grep -q "already assigned to biological sample 'A'" "$tmp_dir/reassigned.log"
+grep -q "across samples 'A' and 'B'" "$tmp_dir/reassigned.log"
 
 cat >"$tmp_dir/mismatched.csv" <<EOF
 sample,fastq_1,fastq_2
 BAD,$repo_dir/tests/fixtures/fastqs/UDB001_R1.fastq,
 EOF
 reject "$tmp_dir/mismatched.csv" mismatched
-grep -q 'paired-end rows require both mates' "$tmp_dir/mismatched.log"
+grep -q 'fastq_2: value is empty' "$tmp_dir/mismatched.log"
 
 echo 'validation tests passed'

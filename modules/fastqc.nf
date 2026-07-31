@@ -1,5 +1,5 @@
 process FASTQC {
-    tag "$sample"
+    tag "${sample}: ${r1.simpleName}, ${r2.simpleName}"
     publishDir "${params.outdir}/qc/fastqc", mode: 'copy', overwrite: true
 
     cpus { params.fastqc_cpus }
@@ -13,7 +13,7 @@ process FASTQC {
 
     script:
     """
-    fastqc --threads ${task.cpus} --outdir . ${r1} ${r2}
+    fastqc --threads ${task.cpus} --outdir . "${r1}" "${r2}"
     """
 
     stub:

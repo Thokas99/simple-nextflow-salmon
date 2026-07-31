@@ -54,36 +54,67 @@ test -e "$tmp_dir/results-fresh/tximport/salmon_gene_tximport.rds"
 grep -q 'compress = "xz"' scripts/tximport_gene_summary.R
 test -s "$tmp_dir/results-fresh/qc/salmon_metrics.tsv"
 test ! -e "$tmp_dir/results-fresh/summary/salmon_mapping_summary.tsv"
-test -s "$tmp_dir/cache/gentrome.fa"
-test -s "$tmp_dir/cache/reference_manifest.tsv"
-test -s "$tmp_dir/cache/salmon_index/info.json"
+cache_dir=$(find "$tmp_dir/cache" -mindepth 1 -maxdepth 1 -type d | head -n 1)
+test -n "$cache_dir"
+test -s "$cache_dir/gentrome.fa"
+test -s "$cache_dir/reference_manifest.json"
+test -s "$cache_dir/salmon_index/info.json"
 test ! -e "$tmp_dir/reference/derived/gentrome.fa"
 
 run_stub reused
-grep -q 'Reusing reference and Salmon index' "$tmp_dir/reused.log"
+grep -q 'Reusing immutable reference cache' "$tmp_dir/reused.log"
 trace="$tmp_dir/results-reused/pipeline_info/execution_trace.tsv"
 test "$(awk -F '\t' '$3 == "SALMON_QUANT" { count++ } END { print count+0 }' "$trace")" -eq 3
 test "$(awk -F '\t' '$3 == "SALMON_INDEX" { count++ } END { print count+0 }' "$trace")" -eq 0
 
-cp "$tmp_dir/cache/salmon_index/info.json" "$tmp_dir/info.json.valid"
-printf '{malformed\n' >"$tmp_dir/cache/salmon_index/info.json"
+cp "$cache_dir/salmon_index/info.json" "$tmp_dir/info.json.valid"
+printf '{malformed\n' >"$cache_dir/salmon_index/info.json"
 nextflow run . --samplesheet "$tmp_dir/samples.csv" --reference_dir "$tmp_dir/reference/raw" \
   --reference_cache_dir "$tmp_dir/cache" --outdir "$tmp_dir/validate-info" --validate_only true \
   >"$tmp_dir/malformed-info.log" 2>&1
-grep -q 'incompatible and will be rebuilt' "$tmp_dir/malformed-info.log"
-cp "$tmp_dir/info.json.valid" "$tmp_dir/cache/salmon_index/info.json"
+grep -q 'Reference cache will be built' "$tmp_dir/malformed-info.log"
+cp "$tmp_dir/info.json.valid" "$cache_dir/salmon_index/info.json"
 
-cp "$tmp_dir/cache/reference_manifest.tsv" "$tmp_dir/manifest.valid"
-printf 'not-a-valid-manifest\n' >"$tmp_dir/cache/reference_manifest.tsv"
+cp "$cache_dir/reference_manifest.json" "$tmp_dir/manifest.valid"
+printf 'not-a-valid-manifest\n' >"$cache_dir/reference_manifest.json"
 nextflow run . --samplesheet "$tmp_dir/samples.csv" --reference_dir "$tmp_dir/reference/raw" \
   --reference_cache_dir "$tmp_dir/cache" --outdir "$tmp_dir/validate-manifest" --validate_only true \
   >"$tmp_dir/malformed-manifest.log" 2>&1
-grep -q 'incompatible and will be rebuilt' "$tmp_dir/malformed-manifest.log"
-cp "$tmp_dir/manifest.valid" "$tmp_dir/cache/reference_manifest.tsv"
+grep -q 'Reference cache will be built' "$tmp_dir/malformed-manifest.log"
+cp "$tmp_dir/manifest.valid" "$cache_dir/reference_manifest.json"
+
+mv "$cache_dir/salmon_index/index.ssi" "$tmp_dir/index.ssi"
+nextflow run . --samplesheet "$tmp_dir/samples.csv" --reference_dir "$tmp_dir/reference/raw" \
+  --reference_cache_dir "$tmp_dir/cache" --outdir "$tmp_dir/validate-missing" --validate_only true \
+  >"$tmp_dir/missing-index.log" 2>&1
+grep -q 'Reference cache will be built' "$tmp_dir/missing-index.log"
+mv "$tmp_dir/index.ssi" "$cache_dir/salmon_index/index.ssi"
+
+nextflow run . --samplesheet "$tmp_dir/samples.csv" --reference_dir "$tmp_dir/reference/raw" \
+  --reference_cache_dir "$tmp_dir/cache" --outdir "$tmp_dir/validate-k" --salmon_k 29 --validate_only true \
+  >"$tmp_dir/changed-k.log" 2>&1
+grep -q 'Reference cache will be built' "$tmp_dir/changed-k.log"
+
+nextflow run . --samplesheet "$tmp_dir/samples.csv" --reference_dir "$tmp_dir/reference/raw" \
+  --reference_cache_dir "$tmp_dir/cache" --outdir "$tmp_dir/validate-version" --salmon_version 2.3.3 --validate_only true \
+  >"$tmp_dir/changed-version.log" 2>&1
+grep -q 'Reference cache will be built' "$tmp_dir/changed-version.log"
+
+cp "$tmp_dir/reference/raw/gencode.v50.transcripts.fa.gz" "$tmp_dir/transcripts.valid"
+printf 'changed' >> "$tmp_dir/reference/raw/gencode.v50.transcripts.fa.gz"
+nextflow run . --samplesheet "$tmp_dir/samples.csv" --reference_dir "$tmp_dir/reference/raw" \
+  --reference_cache_dir "$tmp_dir/cache" --outdir "$tmp_dir/validate-source" --validate_only true \
+  >"$tmp_dir/changed-source.log" 2>&1
+grep -q 'Reference cache will be built' "$tmp_dir/changed-source.log"
+mv "$tmp_dir/transcripts.valid" "$tmp_dir/reference/raw/gencode.v50.transcripts.fa.gz"
+
+test "$(find "$tmp_dir/cache" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')" -eq 1
 
 for report in execution_report.html execution_timeline.html execution_trace.tsv pipeline_dag.html; do
     test -s "$tmp_dir/results-fresh/pipeline_info/$report"
 done
+test -s "$tmp_dir/results-fresh/pipeline_info/run_provenance.json"
+test -s "$tmp_dir/results-fresh/summary/sample_count_summary.tsv"
 ! grep -R -q 'salmon_mapping_summary' README.md main.nf modules scripts
 ! grep -q -E 'multiqc_inputs|cp -r' modules/multiqc.nf
 

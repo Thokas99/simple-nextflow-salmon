@@ -1,0 +1,20 @@
+name: Feature request
+description: Propose a focused improvement within the paired-end bulk RNA-seq scope.
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes: {label: Scientific or operational need}
+    validations: {required: true}
+  - type: textarea
+    id: proposal
+    attributes: {label: Smallest useful change}
+    validations: {required: true}
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: This does not require BAM generation, trimming, differential expression, integerized counts, bootstraps, or single-cell analysis.
+          required: true

@@ -1,0 +1,25 @@
+name: Bug report
+description: Report a reproducible workflow failure or incorrect output.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: textarea
+    id: summary
+    attributes: {label: Problem, description: Describe the observed and expected behavior.}
+    validations: {required: true}
+  - type: input
+    id: version
+    attributes: {label: SnS version or Git revision}
+    validations: {required: true}
+  - type: input
+    id: nextflow
+    attributes: {label: Nextflow version and profile}
+    validations: {required: true}
+  - type: textarea
+    id: command
+    attributes: {label: Sanitized command, description: Remove paths, usernames, tokens, and confidential sample names.}
+    validations: {required: true}
+  - type: textarea
+    id: logs
+    attributes: {label: Relevant error, description: Include the failing process and `.command.err`; do not upload sensitive data.}
+    validations: {required: true}

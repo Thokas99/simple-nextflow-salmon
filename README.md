@@ -1,4 +1,4 @@
-# simple-nextflow-salmon
+# Simple-nextflow-Salmon (SnS)
 
 Small paired-end bulk RNA-seq workflow:
 

@@ -20,7 +20,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: nf-core/setup-nextflow@98e3b21a1c45e26529208849ec20e5cfb7086040 # v2
+      - uses: nf-core/setup-nextflow@6c2e22b4d901f0c42ca66c5069f8026df026d165 # v2
         with:
           version: ${{ matrix.nextflow }}
       - name: Unit and validation tests
@@ -39,7 +39,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: nf-core/setup-nextflow@98e3b21a1c45e26529208849ec20e5cfb7086040 # v2
+      - uses: nf-core/setup-nextflow@6c2e22b4d901f0c42ca66c5069f8026df026d165 # v2
         with:
           version: '26.04.6'
       - uses: mamba-org/setup-micromamba@add3a49764cedee8ee24e82dfde87f5bc2914462 # v2
@@ -57,7 +57,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: nf-core/setup-nextflow@98e3b21a1c45e26529208849ec20e5cfb7086040 # v2
+      - uses: nf-core/setup-nextflow@6c2e22b4d901f0c42ca66c5069f8026df026d165 # v2
         with:
           version: '26.04.6'
       - run: NXF_SYNTAX_PARSER=v2 nextflow lint .

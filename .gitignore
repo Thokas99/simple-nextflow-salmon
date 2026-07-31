@@ -7,6 +7,7 @@ new_results/
 .serena/
 __pycache__/
 *.pyc
+*.conda/
 
 # Keep the workflow small on GitHub. Recreate/download references locally.
 reference/GRCh38_GENCODE/raw/*

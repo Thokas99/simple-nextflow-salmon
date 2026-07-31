@@ -65,8 +65,16 @@ missing_files <- quant_paths[!file.exists(quant_paths)]
 if (length(missing_files)) stop("Missing quant.sf file(s): ", paste(missing_files, collapse = ", "), call. = FALSE)
 if (anyDuplicated(normalizePath(quant_paths))) stop("Duplicated quant.sf paths supplied", call. = FALSE)
 
-gtf_lines <- readLines(gzfile(gtf), warn = FALSE)
-tx_lines <- gtf_lines[grepl("\ttranscript\t", gtf_lines, fixed = TRUE)]
+connection <- gzfile(gtf, open = "rt")
+on.exit(close(connection), add = TRUE)
+tx_chunks <- list()
+repeat {
+  lines <- readLines(connection, n = 100000L, warn = FALSE)
+  if (!length(lines)) break
+  tx_chunks[[length(tx_chunks) + 1L]] <- lines[grepl("\ttranscript\t", lines, fixed = TRUE)]
+}
+tx_lines <- unlist(tx_chunks, use.names = FALSE)
+rm(tx_chunks)
 tx_annotation <- data.table(
   transcript_id = parse_attr(tx_lines, "transcript_id"),
   gene_id = parse_attr(tx_lines, "gene_id"),
@@ -85,7 +93,7 @@ if (tx2gene[, .N, transcript_id][N > 1L, .N]) stop("A transcript_id maps to mult
 gene_annotation <- unique(
   tx_annotation[
     !is.na(gene_id),
-    .(gene_id, gene_name)
+    .(gene_id, gene_name, gene_type)
   ]
 )
 conflicts <- gene_annotation[
@@ -97,14 +105,17 @@ if (nrow(conflicts)) {
   examples <- conflicts[seq_len(min(.N, 5L)), paste0(gene_id, " -> ", names)]
   stop("Conflicting gene_name values for gene_id: ", paste(examples, collapse = "; "), call. = FALSE)
 }
-gene_annotation <- gene_annotation[
-  ,
-  .(gene_name = {
+gene_annotation <- gene_annotation[, .(
+  gene_name = {
     names <- unique(gene_name[!is.na(gene_name) & gene_name != ""])
     if (length(names)) names[1] else gene_id[1]
-  }),
-  by = gene_id
-]
+  },
+  gene_type = {
+    types <- unique(gene_type[!is.na(gene_type) & gene_type != ""])
+    if (length(types) > 1L) stop("Conflicting gene_type values for gene_id ", gene_id[1], call. = FALSE)
+    if (length(types)) types[1] else NA_character_
+  }
+), by = gene_id]
 gene_annotation[is.na(gene_name) | gene_name == "", gene_name := gene_id]
 if (gene_annotation[, anyDuplicated(gene_id)]) stop("gene_annotation must contain one row per gene_id", call. = FALSE)
 observed_tx <- unique(unlist(lapply(quant_paths, function(path) fread(path, select = "Name", showProgress = FALSE)$Name)))
@@ -128,6 +139,8 @@ setcolorder(lengths, c("gene_id", expected))
 
 mat <- as.matrix(counts[, ..expected])
 if (!is.numeric(mat) || any(!is.finite(mat))) stop("Gene estimated-count matrix contains non-finite values", call. = FALSE)
+if (any(!is.finite(as.matrix(abundance[, ..expected])))) stop("Gene abundance matrix contains non-finite values", call. = FALSE)
+if (any(!is.finite(as.matrix(lengths[, ..expected])))) stop("Gene effective-length matrix contains non-finite values", call. = FALSE)
 
 add_gene_names <- function(dt) {
   annotated <- gene_annotation[dt, on = "gene_id"]

@@ -16,17 +16,19 @@ process SALMON_QUANT {
     tuple val(sample), val(lane_count), path("${sample}"), emit: quant_dirs
 
     script:
+    def r1_args = r1.collect { fastq -> "'${fastq.toString().replace("'", "'\\''")}'" }.join(' ')
+    def r2_args = r2.collect { fastq -> "'${fastq.toString().replace("'", "'\\''")}'" }.join(' ')
     """
     salmon quant \\
-      -i ${index} \\
+      -i "${index}" \\
       -l ${params.lib_type} \\
-      -1 ${r1.join(' ')} \\
-      -2 ${r2.join(' ')} \\
+      -1 ${r1_args} \\
+      -2 ${r2_args} \\
       -p ${task.cpus} \\
       --deterministic \\
       --seqBias \\
       --gcBias \\
-      -o ${sample}
+      -o "${sample}"
     """
 
     stub:

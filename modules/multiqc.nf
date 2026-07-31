@@ -1,4 +1,5 @@
 process MULTIQC {
+    tag "${inputs.size()} inputs"
     publishDir "${params.outdir}/qc/multiqc", mode: 'copy', overwrite: true
 
     cpus { params.multiqc_cpus }

@@ -48,7 +48,7 @@ jobs:
           git archive --format=tar.gz --prefix="simple-nextflow-salmon-${version}/" \
             -o "simple-nextflow-salmon-${version}.tar.gz" HEAD
           awk -v version="$version" '$0 == "## [" version "] - 2026-07-31" {show=1; next} /^## \[/ && show {exit} show' CHANGELOG.md > release-notes.md
-      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+      - uses: docker/login-action@371161bbe7024a29a25c5e19bfcbc0804fe9ad2c # v4.5.2
         with:
           registry: ghcr.io
           username: ${{ github.actor }}

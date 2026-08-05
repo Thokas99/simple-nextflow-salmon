@@ -42,7 +42,7 @@ ENST000002.1	800	700	0.0	0.0
 EOF
 
     cat > ${sample}/aux_info/meta_info.json <<'EOF'
-{"num_processed":1000,"num_mapped":800,"percent_mapped":80.0,"detected_library_type":"ISR","frag_length_mean":250.0,"frag_length_sd":40.0,"salmon_version":"2.3.4"}
+{"num_processed":800,"num_mapped":720,"percent_mapped":90.0,"detected_library_type":"ISR","frag_length_mean":250.0,"frag_length_sd":40.0,"salmon_version":"2.3.4"}
 EOF
     """
 }

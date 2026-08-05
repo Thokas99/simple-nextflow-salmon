@@ -18,7 +18,10 @@ process MULTIQC {
 title: "simple-nextflow-salmon report"
 module_order:
   - fastqc
-  - salmon
+  - custom_content
+run_modules:
+  - fastqc
+  - custom_content
 data_dir_name: multiqc_data
 EOF
     multiqc . --config multiqc_config.yml --outdir . --filename multiqc_report.html --force

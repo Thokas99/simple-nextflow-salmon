@@ -4,6 +4,19 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-08-05
+
+### Fixed
+
+- Count paired-end input fragments explicitly with seqkit, validate R1/R2 record agreement, and sum technical lanes once per biological sample.
+- Report Salmon 2.3.4 aligned and quantified strand-compatible fragments with explicit alignment, quantification, and compatibility rates and invariant checks.
+- Replace misleading native Salmon legacy mapping labels in MultiQC with denominator-specific `Align %`, `Quant %`, and `Compat %` custom content.
+
+### Compatibility
+
+- Core Salmon quantification remains unchanged: Salmon 2.3.4, full-decoy selective alignment, automatic library detection, `--deterministic`, `--seqBias`, `--gcBias`, and tximport outputs are preserved.
+- SnS 0.3.0 could display Salmon 2 compatibility statistics using legacy mapping terminology in MultiQC. This was a QC extraction/reporting problem, not evidence that quantification was incorrect.
+
 ## [0.3.0] - 2026-07-31
 
 ### Added
@@ -24,5 +37,6 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Scientific defaults remain Salmon 2.3.4, automatic library detection, `--deterministic`, `--seqBias`, `--gcBias`, and `countsFromAbundance = "no"`.
 - Use `--lanes-as-samples` only to preserve the pre-0.3 generator behavior for detected lanes.
 
-[Unreleased]: https://github.com/Thokas99/simple-nextflow-salmon/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/Thokas99/simple-nextflow-salmon/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/Thokas99/simple-nextflow-salmon/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/Thokas99/simple-nextflow-salmon/compare/v0.2.1...v0.3.0

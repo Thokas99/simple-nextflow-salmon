@@ -17,7 +17,8 @@ flowchart LR
   A --> C[Salmon selective alignment]
   R[Full-decoy reference] --> C
   C --> D[tximport]
-  C --> E[QC summaries]
+  A --> E[Input fragment counts]
+  C --> E[Salmon 2 QC summaries]
   B --> F[MultiQC]
   C --> F
 ```
@@ -56,7 +57,7 @@ See [installation](docs/installation.md), [local execution](docs/local-execution
 | Profile | Runtime | Use |
 |---|---|---|
 | `conda` | Pinned `envs/salmon-rnaseq.yml` via Micromamba | Local/HPC default |
-| `docker` | `ghcr.io/thokas99/simple-nextflow-salmon:0.3.0` | Docker hosts after the 0.3.0 release image is published |
+| `docker` | `ghcr.io/thokas99/simple-nextflow-salmon:0.3.1` | Docker hosts after the 0.3.1 release image is published |
 | `apptainer` / `singularity` | Same pinned OCI image | HPC container execution |
 | `ci` | Resource caps only | Combine with another profile for miniature tests |
 
@@ -118,6 +119,7 @@ CPU and memory parameters are maintained in [`nextflow_schema.json`](nextflow_sc
 ```text
 results/
 ├── qc/{fastqc,multiqc}/
+├── qc/input_fragment_counts.tsv
 ├── qc/salmon_metrics.tsv
 ├── salmon/<sample>/quant.sf
 ├── tximport/
@@ -127,6 +129,8 @@ results/
 
 | Output | Contract |
 |---|---|
+| `qc/input_fragment_counts.tsv` | R1 record counts summed across technical lanes; one paired R1/R2 record pair is one input fragment |
+| `qc/salmon_metrics.tsv` | Salmon 2.3.4 input, aligned, and quantified fragment counts with explicit rates and provenance |
 | `salmon/<sample>/quant.sf` | Transcript length, effective length, TPM, and fractional estimated fragment counts |
 | `tximport/salmon_gene_estimated_counts.tsv` | Gene estimated counts; never rounded or integerized |
 | `tximport/salmon_gene_tpm.tsv` | Gene-level TPM |
@@ -140,6 +144,18 @@ results/
 | `pipeline_info/execution_*`, `pipeline_dag.html` | Nextflow report, timeline, trace, and DAG |
 
 Fractional counts are Salmon model estimates, not observed integer read counts. TPM is within-sample relative abundance. Effective lengths adjust transcript lengths for fragment-length effects. Gene symbols are annotations and may be non-unique or change; versioned `gene_id` is the stable primary key. See [outputs and downstream analysis](docs/outputs.md).
+
+### Salmon 2 QC semantics
+
+```text
+Input fragments
+      ↓ alignment
+Aligned fragments
+      ↓ strand compatibility
+Quantified fragments
+```
+
+`alignment_rate = aligned / input × 100`, `quantification_rate = quantified / input × 100`, and `compatibility_rate = quantified / aligned × 100`. For paired-end data, one R1/R2 record pair is one input fragment; R1 is counted once per pair and technical lanes are summed per biological sample. Compatibility is conditional on aligned fragments and is not an overall FASTQ mapping rate. SnS calculates all three rates explicitly and reports them as `Align %`, `Quant %`, and `Compat %` in MultiQC.
 
 ### edgeR
 

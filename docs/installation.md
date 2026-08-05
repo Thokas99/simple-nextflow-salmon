@@ -22,4 +22,4 @@ The transparent [`Containerfile`](../Containerfile) builds the same Conda enviro
 
 ## Dependency policy
 
-Dependencies are pinned intentionally. Salmon remains 2.3.4 for 0.3.0 to avoid an unreviewed quantification change. Upgrades require compatibility review, the real miniature workflow, documentation, and a release note; mutable `latest` tags are not used.
+Dependencies are pinned intentionally. Salmon remains 2.3.4 for 0.3.1 to avoid an unreviewed quantification change. Upgrades require compatibility review, the real miniature workflow, documentation, and a release note; mutable `latest` tags are not used.

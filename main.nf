@@ -6,6 +6,7 @@ include { BUILD_FULL_DECOY_REFERENCE } from './modules/build_full_decoy_referenc
 include { SALMON_INDEX } from './modules/salmon_index'
 include { PUBLISH_REFERENCE_CACHE } from './modules/publish_reference_cache'
 include { SALMON_QUANT } from './modules/salmon_quant'
+include { INPUT_FRAGMENT_COUNTS } from './modules/input_fragment_counts'
 include { SALMON_METRICS } from './modules/salmon_metrics'
 include { TXIMPORT } from './modules/tximport'
 include { ESTIMATED_COUNT_SUMMARY } from './modules/estimated_count_summary'
@@ -152,6 +153,7 @@ workflow {
     }
 
     FASTQC(channel.fromList(rows))
+    INPUT_FRAGMENT_COUNTS(channel.fromList(samples))
     if (reuse_manifest) {
         log.info "Reusing immutable reference cache ${cache_key}"
         reference_gtf = channel.value(file(cache_dir.resolve('annotation.gtf.gz')))
@@ -170,8 +172,9 @@ workflow {
     all_quant_dirs = quant_dirs.collect()
     TXIMPORT(all_quant_dirs, reference_gtf, samplesheet)
     ESTIMATED_COUNT_SUMMARY(all_quant_dirs, TXIMPORT.out.gene_estimated_counts, samplesheet)
-    SALMON_METRICS(all_quant_dirs, samplesheet)
-    reports = FASTQC.out.reports.mix(SALMON_QUANT.out.quant_dirs.map { _sample, _pair_count, dir -> dir })
+    count_files = INPUT_FRAGMENT_COUNTS.out.counts.map { _sample, counts -> counts }.collect()
+    SALMON_METRICS(all_quant_dirs, count_files)
+    reports = FASTQC.out.reports.mix(SALMON_METRICS.out.multiqc_general, SALMON_METRICS.out.multiqc_details)
     MULTIQC(reports.collect())
     PROVENANCE(channel.value(provenance), MULTIQC.out.report, ESTIMATED_COUNT_SUMMARY.out.sample_count_summary, SALMON_METRICS.out.metrics)
 }

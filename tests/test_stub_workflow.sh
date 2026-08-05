@@ -35,7 +35,9 @@ trace="$tmp_dir/results-fresh/pipeline_info/execution_trace.tsv"
 test "$(awk -F '\t' '$3 == "SALMON_QUANT" { count++ } END { print count+0 }' "$trace")" -eq 3
 test "$(awk -F '\t' '$3 == "FASTQC" { count++ } END { print count+0 }' "$trace")" -eq 4
 test "$(awk -F '\t' 'NR > 1 { count++ } END { print count+0 }' "$tmp_dir/results-fresh/qc/salmon_metrics.tsv")" -eq 3
-test "$(awk -F '\t' '$1 == "A" { print $9 }' "$tmp_dir/results-fresh/qc/salmon_metrics.tsv")" -eq 2
+test "$(awk -F '\t' '$1 == "A" { print $12 }' "$tmp_dir/results-fresh/qc/salmon_metrics.tsv")" -eq 2
+test "$(awk -F '\t' '$1 == "A" { print $2 }' "$tmp_dir/results-fresh/qc/input_fragment_counts.tsv")" -eq 1000
+test "$(awk -F '\t' 'NR == 1 { print $1 FS $2 FS $3 FS $4 FS $5 FS $6 FS $7 }' "$tmp_dir/results-fresh/qc/salmon_metrics.tsv")" = $'sample\tinput_fragments\taligned_fragments\talignment_rate\tquantified_fragments\tquantification_rate\tcompatibility_rate'
 for matrix in salmon_gene_estimated_counts.tsv salmon_gene_tpm.tsv salmon_gene_average_effective_length.tsv; do
     header=$(awk -F '	' 'NR == 1 { print $1 "	" $2 "	" $3 "	" $4 "	" $5 }' "$tmp_dir/results-fresh/tximport/$matrix")
     test "$header" = $'gene_id	gene_name	A	B	C'
@@ -43,6 +45,8 @@ for matrix in salmon_gene_estimated_counts.tsv salmon_gene_tpm.tsv salmon_gene_a
 done
 test -s "$tmp_dir/results-fresh/qc/multiqc/multiqc_report.html"
 test -s "$tmp_dir/results-fresh/qc/multiqc/multiqc_data/multiqc_data.json"
+! grep -q 'Percent Mapped' "$tmp_dir/results-fresh/qc/multiqc/multiqc_report.html"
+! grep -q '% Aligned' "$tmp_dir/results-fresh/qc/multiqc/multiqc_report.html"
 test -s "$tmp_dir/results-fresh/tximport/salmon_gene_estimated_counts.tsv"
 test -s "$tmp_dir/results-fresh/tximport/salmon_gene_tpm.tsv"
 test -s "$tmp_dir/results-fresh/tximport/salmon_gene_average_effective_length.tsv"

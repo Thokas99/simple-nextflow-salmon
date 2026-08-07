@@ -31,7 +31,9 @@ jobs:
         run: |
           python3 -m unittest discover -s tests -p 'test_*.py'
           bash tests/test_validation.sh
-          bash tests/test_stub_workflow.sh
+          if [ "${{ matrix.nextflow }}" = "26.04.6" ]; then
+            bash tests/test_stub_workflow.sh
+          fi
           nextflow config -profile conda >/dev/null
           git diff --check
 

@@ -23,6 +23,10 @@ jobs:
       - uses: nf-core/setup-nextflow@6c2e22b4d901f0c42ca66c5069f8026df026d165 # v2
         with:
           version: ${{ matrix.nextflow }}
+      - uses: mamba-org/setup-micromamba@add3a49764cedee8ee24e82dfde87f5bc2914462 # v2
+        with:
+          environment-file: envs/salmon-rnaseq.yml
+          cache-environment: true
       - name: Unit and validation tests
         run: |
           python3 -m unittest discover -s tests -p 'test_*.py'

@@ -3,7 +3,20 @@ set -euo pipefail
 
 repo_dir=$(cd "$(dirname "$0")/.." && pwd)
 tmp_dir=$(mktemp -d)
-trap 'rm -rf "$tmp_dir"' EXIT
+cleanup() {
+    status=$?
+    if [ "$status" -ne 0 ]; then
+        echo 'validation test logs:' >&2
+        for log in "$tmp_dir"/*.log; do
+            [ -e "$log" ] || continue
+            echo "--- $log" >&2
+            tail -n 80 "$log" >&2
+        done
+    fi
+    rm -rf "$tmp_dir"
+    exit "$status"
+}
+trap cleanup EXIT
 cd "$repo_dir"
 
 reference=tests/fixtures/reference/raw

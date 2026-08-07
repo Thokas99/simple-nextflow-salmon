@@ -4,16 +4,21 @@
   "title": "simple-nextflow-salmon parameters",
   "type": "object",
   "additionalProperties": false,
-  "required": ["samplesheet"],
+  "required": [],
+  "oneOf": [
+    {"required": ["samplesheet"], "not": {"required": ["fastq_dir"]}},
+    {"required": ["fastq_dir"], "not": {"required": ["samplesheet"]}}
+  ],
   "properties": {
     "samplesheet": {"type": "string", "description": "CSV with exactly sample, fastq_1, fastq_2"},
+    "fastq_dir": {"type": "string", "description": "Directory of paired FASTQs; use instead of samplesheet"},
+    "fastq_naming": {"type": "string", "enum": ["auto", "illumina", "mgi", "simple"], "default": "auto"},
     "outdir": {"type": "string", "default": "results"},
     "reference_dir": {"type": "string", "default": "reference/GRCh38_GENCODE/raw"},
     "reference_cache_dir": {"type": ["string", "null"], "default": null},
     "gencode_release": {"type": "integer", "minimum": 1, "default": 50},
     "genome_patch": {"type": "integer", "minimum": 1, "default": 14},
     "salmon_k": {"type": "integer", "minimum": 1, "maximum": 31, "default": 31},
-    "salmon_version": {"const": "2.3.4"},
     "lib_type": {"type": "string", "pattern": "^(A|[IU][SFUO][RFUO])$", "default": "A"},
     "validate_only": {"type": "boolean", "default": false},
     "refresh_reference": {"type": "boolean", "default": false},

@@ -39,6 +39,20 @@ class MakeSamplesheetTest(unittest.TestCase):
         self.touch("P_S1_L001_R1_001.fq", "P_S1_L001_R2_001.fq")
         self.assertEqual(build_rows(find_fastqs(self.root), True)[0]["sample"], "P_L001")
 
+    def test_mgi_lanes_group_by_biological_sample(self):
+        self.touch(
+            "V350387909_L01_UDB001_1.fq.gz", "V350387909_L01_UDB001_2.fq.gz",
+            "V350387909_L02_UDB001_1.fq.gz", "V350387909_L02_UDB001_2.fq.gz",
+        )
+        rows = build_rows(find_fastqs(self.root, "mgi"))
+        self.assertEqual([row["sample"] for row in rows], ["UDB001", "UDB001"])
+        self.assertIn("L01", rows[0]["fastq_1"])
+
+    def test_explicit_naming_rejects_other_conventions(self):
+        self.touch("P_R1.fastq.gz", "P_R2.fastq.gz")
+        with self.assertRaises(ValueError):
+            find_fastqs(self.root, "illumina")
+
     def test_missing_duplicate_collision_and_ambiguous_fail(self):
         cases = [
             ("missing", ["P_R1.fastq"]),

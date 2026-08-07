@@ -19,19 +19,20 @@ test "$(awk -F '\t' '$3 == "SALMON_QUANT" {n++} END {print n+0}' "$trace")" -eq 
 test "$(awk -F '\t' '$3 == "FASTQC" {n++} END {print n+0}' "$trace")" -eq 2
 test -s "$tmp_dir/results-fresh/salmon/Synthetic/quant.sf"
 awk -F '\t' 'NR > 1 && $5 > 0 {mapped=1} END {exit !mapped}' "$tmp_dir/results-fresh/salmon/Synthetic/quant.sf"
-awk -F '\t' 'NR > 1 && $4 > 0 && $6 > 0 && $7 > 0 {valid=1} END {exit !valid}' "$tmp_dir/results-fresh/qc/salmon_metrics.tsv"
-test "$(awk -F '\t' '$1 == "Synthetic" {print $2}' "$tmp_dir/results-fresh/qc/input_fragment_counts.tsv")" -eq 40
+awk -F '\t' 'NR > 1 && $4 > 0 {valid=1} END {exit !valid}' "$tmp_dir/results-fresh/qc/salmon_metrics.tsv"
+test "$(awk -F '\t' '$1 == "Synthetic" {print $9}' "$tmp_dir/results-fresh/qc/salmon_metrics.tsv")" -eq 2
+test -s "$tmp_dir/results-fresh/pipeline_info/resolved_samplesheet.csv"
 test -s "$tmp_dir/results-fresh/tximport/salmon_gene_estimated_counts.tsv"
 test -s "$tmp_dir/results-fresh/tximport/salmon_gene_tximport.rds"
 test -s "$tmp_dir/results-fresh/pipeline_info/run_provenance.json"
 grep -q '"state": "completed"' "$tmp_dir/results-fresh/pipeline_info/run_provenance.json"
 grep -q '"fastq_pairs": 2' "$tmp_dir/results-fresh/pipeline_info/run_provenance.json"
 test -s "$tmp_dir/results-fresh/qc/multiqc/multiqc_report.html"
-grep -q 'Align %' "$tmp_dir/results-fresh/qc/multiqc/multiqc_report.html"
-grep -q 'Quant %' "$tmp_dir/results-fresh/qc/multiqc/multiqc_report.html"
-grep -q 'Compat %' "$tmp_dir/results-fresh/qc/multiqc/multiqc_report.html"
-! grep -q 'Percent Mapped' "$tmp_dir/results-fresh/qc/multiqc/multiqc_report.html"
-! grep -q '% Aligned' "$tmp_dir/results-fresh/qc/multiqc/multiqc_report.html"
+grep -q '% Mapped' "$tmp_dir/results-fresh/qc/multiqc/multiqc_report.html"
+grep -q 'Estimated library' "$tmp_dir/results-fresh/qc/multiqc/multiqc_report.html"
+grep -q 'Detected genes' "$tmp_dir/results-fresh/qc/multiqc/multiqc_report.html"
+grep -q 'fastqc' "$tmp_dir/results-fresh/qc/multiqc/multiqc_data/multiqc_data.json"
+grep -q 'salmon' "$tmp_dir/results-fresh/qc/multiqc/multiqc_data/multiqc_data.json"
 
 run_real reused
 grep -q 'Reusing immutable reference cache' "$tmp_dir/reused.log"

@@ -12,6 +12,4 @@ y <- edgeR::DGEListFromTximport(txi)
 y <- edgeR::calcNormFactors(y)
 ```
 
-`sample_count_summary.tsv` is the canonical per-sample summary. The misleading legacy `gene_count_summary.tsv` is an identical deprecated copy in 0.3.0 and will be removed before 1.0.0.
-
-`qc/input_fragment_counts.tsv` counts R1 records once per paired FASTQ and sums technical lanes per biological sample. `qc/salmon_metrics.tsv` interprets Salmon 2.3.4 `num_processed` as aligned fragments and `num_mapped` as quantified strand-compatible fragments, matching the Salmon 2 log stages. SnS derives alignment, quantification, and compatibility rates with explicit denominators; zero denominators yield zero rates. This interpretation is specific to Salmon 2.3.4 and does not reuse legacy mapping terminology.
+`sample_count_summary.tsv` is the canonical per-sample summary. `qc/salmon_metrics.tsv` copies native Salmon `aux_info/meta_info.json` fields and adds the number of normalized FASTQ pairs; it does not reinterpret Salmon counts or calculate custom mapping rates. MultiQC combines FastQC, native Salmon, and the two post-tximport RNA metrics.

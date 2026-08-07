@@ -4,6 +4,25 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-07
+
+### Added
+
+- Direct `--fastq_dir` input with conservative `auto`, Illumina, MGI, and simple pairing.
+- Normalized `pipeline_info/resolved_samplesheet.csv` provenance for every run.
+- Native Salmon MultiQC parsing and RNA-level estimated-library and detected-gene columns.
+
+### Changed
+
+- Salmon QC now reports native `meta_info.json` fields without relabeling or derived mapping rates.
+- Technical lanes remain one Salmon quantification per biological sample while FastQC runs per pair.
+- Conda/Micromamba is the documented execution path and CI/release runs use safe resource caps.
+
+### Removed
+
+- Redundant FASTQ fragment recounting and its QC denominator.
+- Misleading custom Salmon alignment, quantification, and compatibility metrics.
+
 ## [0.3.1] - 2026-08-05
 
 ### Fixed
@@ -37,6 +56,7 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Scientific defaults remain Salmon 2.3.4, automatic library detection, `--deterministic`, `--seqBias`, `--gcBias`, and `countsFromAbundance = "no"`.
 - Use `--lanes-as-samples` only to preserve the pre-0.3 generator behavior for detected lanes.
 
-[Unreleased]: https://github.com/Thokas99/simple-nextflow-salmon/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/Thokas99/simple-nextflow-salmon/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/Thokas99/simple-nextflow-salmon/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/Thokas99/simple-nextflow-salmon/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/Thokas99/simple-nextflow-salmon/compare/v0.2.1...v0.3.0

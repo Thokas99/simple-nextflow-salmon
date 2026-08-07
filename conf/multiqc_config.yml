@@ -1,0 +1,11 @@
+title: simple-nextflow-salmon report
+module_order:
+  - fastqc
+  - salmon
+  - custom_content
+run_modules:
+  - fastqc
+  - salmon
+  - custom_content
+data_dir_name: multiqc_data
+show_analysis_paths: false

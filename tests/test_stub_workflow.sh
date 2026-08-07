@@ -11,20 +11,17 @@ nextflow config -profile conda >/dev/null
 
 mkdir -p "$tmp_dir/fastqs" "$tmp_dir/reference/raw"
 cp tests/fixtures/reference/raw/* "$tmp_dir/reference/raw/"
-for lane in A_L1 A_L2 B C; do
-    cp tests/fixtures/fastqs/UDB001_R1.fastq "$tmp_dir/fastqs/${lane}_R1.fastq"
-    cp tests/fixtures/fastqs/UDB001_R2.fastq "$tmp_dir/fastqs/${lane}_R2.fastq"
+for lane in 01 02; do
+    cp tests/fixtures/fastqs/UDB001_R1.fastq "$tmp_dir/fastqs/V350387909_L${lane}_A_1.fastq"
+    cp tests/fixtures/fastqs/UDB001_R2.fastq "$tmp_dir/fastqs/V350387909_L${lane}_A_2.fastq"
 done
-cat >"$tmp_dir/samples.csv" <<EOF
-sample,fastq_1,fastq_2
-A,$tmp_dir/fastqs/A_L1_R1.fastq,$tmp_dir/fastqs/A_L1_R2.fastq
-A,$tmp_dir/fastqs/A_L2_R1.fastq,$tmp_dir/fastqs/A_L2_R2.fastq
-B,$tmp_dir/fastqs/B_R1.fastq,$tmp_dir/fastqs/B_R2.fastq
-C,$tmp_dir/fastqs/C_R1.fastq,$tmp_dir/fastqs/C_R2.fastq
-EOF
+cp tests/fixtures/fastqs/UDB001_R1.fastq "$tmp_dir/fastqs/B_R1.fastq"
+cp tests/fixtures/fastqs/UDB001_R2.fastq "$tmp_dir/fastqs/B_R2.fastq"
+cp tests/fixtures/fastqs/UDB001_R1.fastq "$tmp_dir/fastqs/C_S1_L001_R1_001.fastq"
+cp tests/fixtures/fastqs/UDB001_R2.fastq "$tmp_dir/fastqs/C_S1_L001_R2_001.fastq"
 
 run_stub() {
-    nextflow run . --samplesheet "$tmp_dir/samples.csv" \
+    nextflow run . -profile conda,ci --fastq_dir "$tmp_dir/fastqs" \
       --reference_dir "$tmp_dir/reference/raw" --reference_cache_dir "$tmp_dir/cache" \
       --outdir "$tmp_dir/results-$1" -work-dir "$tmp_dir/work-$1" -stub-run \
       >"$tmp_dir/$1.log" 2>&1
@@ -35,9 +32,10 @@ trace="$tmp_dir/results-fresh/pipeline_info/execution_trace.tsv"
 test "$(awk -F '\t' '$3 == "SALMON_QUANT" { count++ } END { print count+0 }' "$trace")" -eq 3
 test "$(awk -F '\t' '$3 == "FASTQC" { count++ } END { print count+0 }' "$trace")" -eq 4
 test "$(awk -F '\t' 'NR > 1 { count++ } END { print count+0 }' "$tmp_dir/results-fresh/qc/salmon_metrics.tsv")" -eq 3
-test "$(awk -F '\t' '$1 == "A" { print $12 }' "$tmp_dir/results-fresh/qc/salmon_metrics.tsv")" -eq 2
-test "$(awk -F '\t' '$1 == "A" { print $2 }' "$tmp_dir/results-fresh/qc/input_fragment_counts.tsv")" -eq 1000
-test "$(awk -F '\t' 'NR == 1 { print $1 FS $2 FS $3 FS $4 FS $5 FS $6 FS $7 }' "$tmp_dir/results-fresh/qc/salmon_metrics.tsv")" = $'sample\tinput_fragments\taligned_fragments\talignment_rate\tquantified_fragments\tquantification_rate\tcompatibility_rate'
+test "$(awk -F '\t' '$1 == "A" { print $9 }' "$tmp_dir/results-fresh/qc/salmon_metrics.tsv")" -eq 2
+test "$(awk -F '\t' 'NR == 1 { print $1 FS $2 FS $3 FS $4 FS $5 FS $6 FS $7 FS $8 FS $9 }' "$tmp_dir/results-fresh/qc/salmon_metrics.tsv")" = $'sample\tnum_processed\tnum_mapped\tpercent_mapped\tdetected_library_type\tfrag_length_mean\tfrag_length_sd\tsalmon_version\tfastq_pairs'
+test -s "$tmp_dir/results-fresh/pipeline_info/resolved_samplesheet.csv"
+grep -q '"A"' "$tmp_dir/results-fresh/pipeline_info/resolved_samplesheet.csv"
 for matrix in salmon_gene_estimated_counts.tsv salmon_gene_tpm.tsv salmon_gene_average_effective_length.tsv; do
     header=$(awk -F '	' 'NR == 1 { print $1 "	" $2 "	" $3 "	" $4 "	" $5 }' "$tmp_dir/results-fresh/tximport/$matrix")
     test "$header" = $'gene_id	gene_name	A	B	C'
@@ -45,8 +43,6 @@ for matrix in salmon_gene_estimated_counts.tsv salmon_gene_tpm.tsv salmon_gene_a
 done
 test -s "$tmp_dir/results-fresh/qc/multiqc/multiqc_report.html"
 test -s "$tmp_dir/results-fresh/qc/multiqc/multiqc_data/multiqc_data.json"
-! grep -q 'Percent Mapped' "$tmp_dir/results-fresh/qc/multiqc/multiqc_report.html"
-! grep -q '% Aligned' "$tmp_dir/results-fresh/qc/multiqc/multiqc_report.html"
 test -s "$tmp_dir/results-fresh/tximport/salmon_gene_estimated_counts.tsv"
 test -s "$tmp_dir/results-fresh/tximport/salmon_gene_tpm.tsv"
 test -s "$tmp_dir/results-fresh/tximport/salmon_gene_average_effective_length.tsv"
@@ -73,7 +69,7 @@ test "$(awk -F '\t' '$3 == "SALMON_INDEX" { count++ } END { print count+0 }' "$t
 
 cp "$cache_dir/salmon_index/info.json" "$tmp_dir/info.json.valid"
 printf '{malformed\n' >"$cache_dir/salmon_index/info.json"
-nextflow run . --samplesheet "$tmp_dir/samples.csv" --reference_dir "$tmp_dir/reference/raw" \
+nextflow run . -profile conda,ci --fastq_dir "$tmp_dir/fastqs" --reference_dir "$tmp_dir/reference/raw" \
   --reference_cache_dir "$tmp_dir/cache" --outdir "$tmp_dir/validate-info" --validate_only true \
   >"$tmp_dir/malformed-info.log" 2>&1
 grep -q 'Reference cache will be built' "$tmp_dir/malformed-info.log"
@@ -81,32 +77,27 @@ cp "$tmp_dir/info.json.valid" "$cache_dir/salmon_index/info.json"
 
 cp "$cache_dir/reference_manifest.json" "$tmp_dir/manifest.valid"
 printf 'not-a-valid-manifest\n' >"$cache_dir/reference_manifest.json"
-nextflow run . --samplesheet "$tmp_dir/samples.csv" --reference_dir "$tmp_dir/reference/raw" \
+nextflow run . -profile conda,ci --fastq_dir "$tmp_dir/fastqs" --reference_dir "$tmp_dir/reference/raw" \
   --reference_cache_dir "$tmp_dir/cache" --outdir "$tmp_dir/validate-manifest" --validate_only true \
   >"$tmp_dir/malformed-manifest.log" 2>&1
 grep -q 'Reference cache will be built' "$tmp_dir/malformed-manifest.log"
 cp "$tmp_dir/manifest.valid" "$cache_dir/reference_manifest.json"
 
 mv "$cache_dir/salmon_index/index.ssi" "$tmp_dir/index.ssi"
-nextflow run . --samplesheet "$tmp_dir/samples.csv" --reference_dir "$tmp_dir/reference/raw" \
+nextflow run . -profile conda,ci --fastq_dir "$tmp_dir/fastqs" --reference_dir "$tmp_dir/reference/raw" \
   --reference_cache_dir "$tmp_dir/cache" --outdir "$tmp_dir/validate-missing" --validate_only true \
   >"$tmp_dir/missing-index.log" 2>&1
 grep -q 'Reference cache will be built' "$tmp_dir/missing-index.log"
 mv "$tmp_dir/index.ssi" "$cache_dir/salmon_index/index.ssi"
 
-nextflow run . --samplesheet "$tmp_dir/samples.csv" --reference_dir "$tmp_dir/reference/raw" \
+nextflow run . -profile conda,ci --fastq_dir "$tmp_dir/fastqs" --reference_dir "$tmp_dir/reference/raw" \
   --reference_cache_dir "$tmp_dir/cache" --outdir "$tmp_dir/validate-k" --salmon_k 29 --validate_only true \
   >"$tmp_dir/changed-k.log" 2>&1
 grep -q 'Reference cache will be built' "$tmp_dir/changed-k.log"
 
-nextflow run . --samplesheet "$tmp_dir/samples.csv" --reference_dir "$tmp_dir/reference/raw" \
-  --reference_cache_dir "$tmp_dir/cache" --outdir "$tmp_dir/validate-version" --salmon_version 2.3.3 --validate_only true \
-  >"$tmp_dir/changed-version.log" 2>&1
-grep -q 'Reference cache will be built' "$tmp_dir/changed-version.log"
-
 cp "$tmp_dir/reference/raw/gencode.v50.transcripts.fa.gz" "$tmp_dir/transcripts.valid"
 printf 'changed' >> "$tmp_dir/reference/raw/gencode.v50.transcripts.fa.gz"
-nextflow run . --samplesheet "$tmp_dir/samples.csv" --reference_dir "$tmp_dir/reference/raw" \
+nextflow run . -profile conda,ci --fastq_dir "$tmp_dir/fastqs" --reference_dir "$tmp_dir/reference/raw" \
   --reference_cache_dir "$tmp_dir/cache" --outdir "$tmp_dir/validate-source" --validate_only true \
   >"$tmp_dir/changed-source.log" 2>&1
 grep -q 'Reference cache will be built' "$tmp_dir/changed-source.log"
@@ -119,7 +110,7 @@ for report in execution_report.html execution_timeline.html execution_trace.tsv 
 done
 test -s "$tmp_dir/results-fresh/pipeline_info/run_provenance.json"
 test -s "$tmp_dir/results-fresh/summary/sample_count_summary.tsv"
-! grep -R -q 'salmon_mapping_summary' README.md main.nf modules scripts
-! grep -q -E 'multiqc_inputs|cp -r' modules/multiqc.nf
+! grep -R -q 'input_fragment_counts\|alignment_rate\|quantification_rate\|compatibility_rate' main.nf modules scripts README.md
+! grep -q -E 'multiqc_inputs|cat > multiqc_config.yml' modules/multiqc.nf
 
 echo 'stub workflow tests passed'

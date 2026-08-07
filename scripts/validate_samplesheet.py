@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate an SnS CSV and emit normalized JSON for Nextflow."""
+"""Validate or discover paired FASTQs and write the normalized workflow input."""
 
 from __future__ import annotations
 
@@ -8,8 +8,14 @@ import csv
 import json
 import os
 import re
+import sys
 from collections import OrderedDict
 from pathlib import Path
+
+try:
+    from .make_samplesheet import build_rows, find_fastqs
+except ImportError:
+    from make_samplesheet import build_rows, find_fastqs
 
 
 REQUIRED = ["sample", "fastq_1", "fastq_2"]
@@ -78,11 +84,31 @@ def validate(path: Path, launch_dir: Path) -> dict:
                 rows.append({"sample": sample, "fastq_1": str(r1), "fastq_2": str(r2), "row": line})
         except csv.Error as exc:
             errors.append(f"CSV parse error near row {reader.line_num}: {exc}")
+    return _result(rows, errors)
+
+
+def discover(path: Path, naming: str, source_root: Path | None = None) -> dict:
+    if not path.is_dir():
+        raise ValueError(f"FASTQ directory does not exist: {path}")
+    parsed = find_fastqs(path, naming)
+    if not parsed:
+        raise ValueError(f"no FASTQ files found under: {path}")
+    rows = build_rows(parsed)
+    if source_root is not None:
+        source_root = source_root.resolve()
+        rows = [
+            {**row, **{field: str(source_root / Path(row[field]).resolve().relative_to(path.resolve())) for field in ("fastq_1", "fastq_2")}}
+            for row in rows
+        ]
+    return _result(rows, [])
+
+
+def _result(rows: list[dict], errors: list[str]) -> dict:
     if not rows:
         errors.append("samplesheet has no data rows")
     if errors:
         raise ValueError("Samplesheet validation failed:\n- " + "\n- ".join(dict.fromkeys(errors)))
-
+    rows = sorted(rows, key=lambda row: (row["sample"], row["fastq_1"], row["fastq_2"]))
     grouped: OrderedDict[str, list[dict]] = OrderedDict()
     for row in rows:
         grouped.setdefault(row["sample"], []).append(row)
@@ -95,15 +121,38 @@ def validate(path: Path, launch_dir: Path) -> dict:
             "fastq_pairs": len(rows), "technical_replicate_samples": sum(s["fastq_pairs"] > 1 for s in samples)}
 
 
-def main() -> int:
+def write_outputs(result: dict, output: Path, metadata: Path) -> None:
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with output.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=REQUIRED, quoting=csv.QUOTE_ALL, lineterminator="\n")
+        writer.writeheader()
+        writer.writerows({key: row[key] for key in REQUIRED} for row in result["rows"])
+    metadata.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+
+
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("samplesheet", type=Path)
+    parser.add_argument("input", type=Path)
+    parser.add_argument("--input-kind", choices=("samplesheet", "fastq_dir"), required=True)
+    parser.add_argument("--fastq-naming", choices=("auto", "illumina", "mgi", "simple"), default="auto")
     parser.add_argument("--launch-dir", type=Path, required=True)
-    args = parser.parse_args()
+    parser.add_argument("--source-root", type=Path)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--metadata", type=Path, required=True)
+    args = parser.parse_args(argv)
     try:
-        print(json.dumps(validate(args.samplesheet.resolve(), args.launch_dir.resolve()), separators=(",", ":")))
+        if args.input_kind == "samplesheet":
+            result = validate(args.input.resolve(), args.launch_dir.resolve())
+        else:
+            result = discover(args.input.resolve(), args.fastq_naming, args.source_root)
+        write_outputs(result, args.output, args.metadata)
+        print(
+            f"{result['biological_samples']} biological samples, {result['fastq_pairs']} FASTQ pairs, "
+            f"{result['technical_replicate_samples']} technical-replicate samples",
+            file=sys.stderr,
+        )
         return 0
-    except ValueError as exc:
+    except (OSError, ValueError) as exc:
         parser.error(str(exc))
 
 

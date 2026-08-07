@@ -26,7 +26,7 @@ MANIFEST
     """
     mkdir -p salmon_index
     for name in index.ctab index.ectab index.refinfo index.ssi refseq.bin refseq_offsets.json; do echo stub > "salmon_index/\$name"; done
-    echo '{"salmon_version":"${params.salmon_version}","k":${params.salmon_k},"has_ec_table":true,"num_refs":1,"num_decoys":1}' > salmon_index/info.json
+    echo '{"salmon_version":"${identity.salmon_version}","k":${params.salmon_k},"has_ec_table":true,"num_refs":1,"num_decoys":1}' > salmon_index/info.json
     cat > reference_manifest.json <<'MANIFEST'
 ${manifest}
 MANIFEST

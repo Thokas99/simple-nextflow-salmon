@@ -34,6 +34,7 @@ jobs:
           grep -q "version *= *'${version}'" nextflow.config
           grep -q "image.version=\"${version}\"" Containerfile
           grep -q "^## \[${version}\]" CHANGELOG.md
+          grep -q "v${version}" README.md
       - name: Release tests
         run: |
           python3 -m unittest discover -s tests -p 'test_*.py'

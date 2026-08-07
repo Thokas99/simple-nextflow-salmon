@@ -25,16 +25,14 @@ process ESTIMATED_COUNT_SUMMARY {
 
     stub:
     """
+    samples=\$(python3 -c 'import csv,sys; print("\\n".join(dict.fromkeys(r["sample"] for r in csv.DictReader(open(sys.argv[1], newline="")))))' "${samplesheet}")
     cat > estimated_count_summary.tsv <<'EOF'
 metric	value
 genes	1
 samples	2
 EOF
-    cat > sample_count_summary.tsv <<'EOF'
-sample	total_estimated_fragments	genes_with_estimated_count_gt_0
-UDB001	10.5	1
-UDB003	20.25	1
-EOF
+    printf 'sample\ttotal_estimated_fragments\tgenes_with_estimated_count_gt_0\n' > sample_count_summary.tsv
+    while read -r sample; do printf '%s\t10.5\t1\n' "\$sample" >> sample_count_summary.tsv; done <<< "\$samples"
     cp sample_count_summary.tsv gene_count_summary.tsv
     """
 }

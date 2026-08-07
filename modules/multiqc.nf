@@ -14,16 +14,7 @@ process MULTIQC {
 
     script:
     """
-    cat > multiqc_config.yml <<'EOF'
-title: "simple-nextflow-salmon report"
-module_order:
-  - fastqc
-  - custom_content
-run_modules:
-  - fastqc
-  - custom_content
-data_dir_name: multiqc_data
-EOF
+    cp "${projectDir}/conf/multiqc_config.yml" multiqc_config.yml
     multiqc . --config multiqc_config.yml --outdir . --filename multiqc_report.html --force
     """
 

@@ -17,6 +17,10 @@ ILLUMINA_RE = re.compile(
     rf"^(?P<sample>.+)_S(?P<sample_no>\d+)_L(?P<lane>\d{{3}})_R(?P<read>[12])_(?P<chunk>\d{{3}})(?P<ext>{EXT})$",
     re.IGNORECASE,
 )
+MGI_RE = re.compile(
+    rf"^(?P<run>[^_]+)_L(?P<lane>\d{{2,3}})_(?P<sample>[A-Za-z0-9][A-Za-z0-9_.-]*)_(?P<read>[12])(?P<ext>{EXT})$",
+    re.IGNORECASE,
+)
 SIMPLE_RE = re.compile(rf"^(?P<sample>.+?)[_.-]R(?P<read>[12])(?P<ext>{EXT})$", re.IGNORECASE)
 FASTQ_EXT_RE = re.compile(rf"{EXT}$", re.IGNORECASE)
 SAFE_SAMPLE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
@@ -36,14 +40,17 @@ class ParsedFastq:
         return (self.sample, self.lane or 0, self.chunk or 0)
 
 
-def parse_fastq(path: Path) -> ParsedFastq:
-    match = ILLUMINA_RE.fullmatch(path.name)
+def parse_fastq(path: Path, naming: str = "auto") -> ParsedFastq:
+    match = ILLUMINA_RE.fullmatch(path.name) if naming in ("auto", "illumina") else None
     if match:
         return ParsedFastq(
             path.resolve(), match["sample"], int(match["read"]), int(match["lane"]),
             int(match["chunk"]), "illumina",
         )
-    match = SIMPLE_RE.fullmatch(path.name)
+    match = MGI_RE.fullmatch(path.name) if naming in ("auto", "mgi") else None
+    if match:
+        return ParsedFastq(path.resolve(), match["sample"], int(match["read"]), int(match["lane"]), None, "mgi")
+    match = SIMPLE_RE.fullmatch(path.name) if naming in ("auto", "simple") else None
     if match:
         sample = match["sample"]
         if re.search(r"(?:^|[_-])(?:S\d+|L\d{3})(?:[_-]|$)", sample, re.IGNORECASE):
@@ -53,12 +60,12 @@ def parse_fastq(path: Path) -> ParsedFastq:
             )
         return ParsedFastq(path.resolve(), sample, int(match["read"]), None, None, "simple")
     raise ValueError(
-        f"ambiguous FASTQ name '{path.name}': expected '<sample>_R1.fastq.gz' or "
-        "'<sample>_S1_L001_R1_001.fastq.gz' (and the matching R2)"
+        f"unsupported FASTQ name '{path.name}': expected simple, Illumina, or MGI naming "
+        "(and the matching R2); use --fastq-naming to select a convention"
     )
 
 
-def find_fastqs(fastq_dir: Path) -> list[ParsedFastq]:
+def find_fastqs(fastq_dir: Path, naming: str = "auto") -> list[ParsedFastq]:
     candidates = sorted(
         (path for path in fastq_dir.rglob("*") if path.is_file() and FASTQ_EXT_RE.search(path.name)),
         key=lambda path: str(path.resolve()),
@@ -73,7 +80,7 @@ def find_fastqs(fastq_dir: Path) -> list[ParsedFastq]:
         else:
             basenames[path.name] = path
         try:
-            parsed.append(parse_fastq(path))
+            parsed.append(parse_fastq(path, naming))
         except ValueError as exc:
             errors.append(str(exc))
     if errors:
@@ -130,14 +137,15 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Create a lane-aware sample,fastq_1,fastq_2 CSV.")
     parser.add_argument("fastq_dir", type=Path, help="Directory searched recursively for FASTQs")
     parser.add_argument("-o", "--out", type=Path, default=Path("samplesheet.csv"))
-    parser.add_argument("--lanes-as-samples", action="store_true", help="Treat detected Illumina lanes as separate samples")
+    parser.add_argument("--fastq-naming", choices=("auto", "illumina", "mgi", "simple"), default="auto")
+    parser.add_argument("--lanes-as-samples", action="store_true", help="Treat detected lanes as separate samples")
     parser.add_argument("--dry-run", action="store_true", help="Print the CSV without writing it")
     parser.add_argument("--overwrite", action="store_true", help="Replace an existing output samplesheet")
     args = parser.parse_args(argv)
     try:
         if not args.fastq_dir.is_dir():
             raise ValueError(f"FASTQ directory does not exist: {args.fastq_dir}")
-        fastqs = find_fastqs(args.fastq_dir)
+        fastqs = find_fastqs(args.fastq_dir, args.fastq_naming)
         if not fastqs:
             raise ValueError(f"no FASTQ files found under: {args.fastq_dir}")
         rows = build_rows(fastqs, args.lanes_as_samples)

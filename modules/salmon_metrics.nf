@@ -7,24 +7,21 @@ process SALMON_METRICS {
 
     input:
     path quant_dirs
-    path input_counts
+    path samplesheet
+    path sample_count_summary
 
     output:
     path "salmon_metrics.tsv", emit: metrics
-    path "input_fragment_counts.tsv", emit: input_counts
-    path "salmon2_qc_general_mqc.json", emit: multiqc_general
-    path "salmon2_qc_details_mqc.json", emit: multiqc_details
+    path "pipeline_rna_qc_mqc.json", emit: multiqc_general
 
     script:
     def quant_args = quant_dirs.collect { dir -> "'${dir.toString().replace("'", "'\\''")}'" }.join(' ')
     """
     python3 "${projectDir}/scripts/salmon_metrics.py" \\
-      --input-counts ${input_counts.collect { path -> "'${path.toString().replace("'", "'\\''")}'" }.join(' ')} \\
       --quant-dirs ${quant_args} \\
-      --quant-output-dir "${params.outdir}/salmon" \\
+      --samplesheet "${samplesheet}" \\
+      --sample-count-summary "${sample_count_summary}" \\
       --output salmon_metrics.tsv \\
-      --counts-output input_fragment_counts.tsv \\
-      --multiqc-general salmon2_qc_general_mqc.json \\
-      --multiqc-details salmon2_qc_details_mqc.json
+      --multiqc-general pipeline_rna_qc_mqc.json
     """
 }

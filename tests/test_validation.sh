@@ -8,7 +8,7 @@ cd "$repo_dir"
 
 reference=tests/fixtures/reference/raw
 validate() {
-    nextflow run . --samplesheet "$1" --reference_dir "$reference" \
+    nextflow run . -profile conda,ci --samplesheet "$1" --reference_dir "$reference" \
       --outdir "$tmp_dir/results-$2" --validate_only true >"$tmp_dir/$2.log" 2>&1
 }
 reject() {
@@ -21,7 +21,18 @@ reject() {
 validate tests/fixtures/samplesheet_single.csv single
 validate tests/fixtures/samplesheet.csv standard
 validate tests/fixtures/samplesheet_technical_replicates.csv technical
-grep -q '1 biological samples, 2 FASTQ pairs, 1 technical-replicate samples' "$tmp_dir/technical.log"
+grep -q '"biological_samples": 1' "$tmp_dir/results-technical/pipeline_info/resolved_samplesheet.json"
+grep -q '"fastq_pairs": 2' "$tmp_dir/results-technical/pipeline_info/resolved_samplesheet.json"
+
+reject_both() {
+    if nextflow run . -profile conda,ci --samplesheet tests/fixtures/samplesheet_single.csv \
+        --fastq_dir tests/fixtures/fastqs --reference_dir "$reference" --outdir "$tmp_dir/results-both" \
+        --validate_only true >"$tmp_dir/both.log" 2>&1; then
+        echo 'Expected exactly-one input validation failure' >&2
+        exit 1
+    fi
+}
+reject_both
 
 cat >"$tmp_dir/missing.csv" <<EOF
 sample,fastq_1,fastq_2

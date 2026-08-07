@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.validate_samplesheet import validate
+from scripts.validate_samplesheet import discover, validate, write_outputs
 
 
 class ValidateSamplesheetTest(unittest.TestCase):
@@ -42,6 +42,18 @@ class ValidateSamplesheetTest(unittest.TestCase):
         path = self.write([["A", "B_R1.fastq.gz", "B_R2.fastq.gz"], ["A", "B_R1.fastq.gz", "B_R2.fastq.gz"]])
         with self.assertRaisesRegex(ValueError, "repeated within sample"):
             validate(path, self.root)
+
+    def test_mgi_discovery_writes_deterministic_normalized_csv(self):
+        fastqs = self.root / "fastqs"
+        fastqs.mkdir()
+        for lane in (2, 1):
+            (fastqs / f"V350387909_L{lane:02d}_UDB001_1.fq.gz").touch()
+            (fastqs / f"V350387909_L{lane:02d}_UDB001_2.fq.gz").touch()
+        result = discover(fastqs, "mgi", self.root / "fastqs")
+        output = self.root / "resolved_samplesheet.csv"
+        write_outputs(result, output, self.root / "resolved_samplesheet.json")
+        self.assertEqual(output.read_text().splitlines()[1].split(",")[0], '"UDB001"')
+        self.assertIn("L01", output.read_text().splitlines()[1])
 
 
 if __name__ == "__main__":

@@ -59,7 +59,7 @@ jobs:
           context: .
           file: Containerfile
           push: true
-          tags: ghcr.io/${{ github.repository }}:${{ steps.version.outputs.value }}
+          tags: ghcr.io/thokas99/simple-nextflow-salmon:${{ steps.version.outputs.value }}
       - uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
           body_path: release-notes.md

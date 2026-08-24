@@ -9,8 +9,17 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 ### Added
 
 - Constant-time first-record FASTQ preflight before FastQC.
-- Runtime software version provenance and concise `--help`/`--version` output.
+- Runtime software version provenance in `pipeline_info/software_versions.tsv` and concise `--help`/`--version` output.
 - Opt-in, checksum-verified official GENCODE reference downloads.
+
+### Changed
+
+- Missing references now fail with actionable official GENCODE instructions unless `--download_reference true` is explicitly supplied.
+- Downloaded references use `.part` files, official `MD5SUMS` verification, and the existing validation and immutable cache fingerprinting path.
+
+### Compatibility
+
+- FASTQ auto-discovery, explicit samplesheets, Illumina/MGI/simple naming, technical replicate handling, full-decoy Salmon indexing, FastQC, Salmon, tximport, MultiQC, Conda/container profiles, and `--validate_only` remain supported.
 
 ## [0.4.0] - 2026-08-07
 

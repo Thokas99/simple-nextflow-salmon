@@ -19,10 +19,15 @@ cleanup() {
 trap cleanup EXIT
 cd "$repo_dir"
 
+nextflow run . --help >"$tmp_dir/help.log" 2>&1
+grep -q '^Input:' "$tmp_dir/help.log"
+nextflow run . --version >"$tmp_dir/version.log" 2>&1
+test "$(tr -d '[:space:]' < "$repo_dir/VERSION")" = "$(tail -n 1 "$tmp_dir/version.log" | tr -d '[:space:]')"
+
 reference=tests/fixtures/reference/raw
 validate() {
     nextflow run . -profile conda,ci --samplesheet "$1" --reference_dir "$reference" \
-      --outdir "$tmp_dir/results-$2" --validate_only true >"$tmp_dir/$2.log" 2>&1
+      --outdir "$tmp_dir/results-$2" --download_reference false --validate_only true >"$tmp_dir/$2.log" 2>&1
 }
 reject() {
     if validate "$1" "$2"; then
@@ -53,6 +58,14 @@ BAD,$tmp_dir/missing_R1.fastq.gz,$tmp_dir/missing_R2.fastq.gz
 EOF
 reject "$tmp_dir/missing.csv" missing
 grep -q 'file not found' "$tmp_dir/missing.log"
+
+if nextflow run . -profile conda,ci --samplesheet tests/fixtures/samplesheet_single.csv \
+    --reference_dir "$tmp_dir/missing-reference" --outdir "$tmp_dir/missing-reference-results" \
+    --download_reference false --validate_only true >"$tmp_dir/missing-reference.log" 2>&1; then
+    echo 'Expected missing-reference validation failure' >&2
+    exit 1
+fi
+grep -q 'Reference files are missing' "$tmp_dir/missing-reference.log"
 
 cp tests/fixtures/samplesheet_single.csv "$tmp_dir/duplicate.csv"
 tail -n 1 tests/fixtures/samplesheet_single.csv >>"$tmp_dir/duplicate.csv"

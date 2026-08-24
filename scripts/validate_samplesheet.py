@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import gzip
 import json
 import os
 import re
@@ -21,6 +22,57 @@ except ImportError:
 REQUIRED = ["sample", "fastq_1", "fastq_2"]
 SAFE_SAMPLE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 FASTQ_EXT = re.compile(r"\.f(?:ast)?q(?:\.gz)?$", re.IGNORECASE)
+MATE_SUFFIX = re.compile(r"([._/])([12])$")
+
+
+def _fastq_header_id(header: str) -> str:
+    fields = header[1:].strip().split()
+    identifier = MATE_SUFFIX.sub("", fields[0]) if fields else ""
+    return identifier
+
+
+def _preflight(path: Path) -> str | None:
+    if path.stat().st_size == 0:
+        return "file is empty"
+    opener = gzip.open if path.name.lower().endswith(".gz") else open
+    try:
+        with opener(path, "rt", encoding="utf-8", newline="") as handle:
+            header, sequence, separator, quality = (handle.readline().rstrip("\r\n") for _ in range(4))
+    except (OSError, UnicodeError) as exc:
+        return f"cannot read first FASTQ record: {exc}"
+    if not header.startswith("@"):
+        return "first FASTQ record header must start with '@'"
+    if not sequence:
+        return "first FASTQ record sequence is empty"
+    if not separator.startswith("+"):
+        return "first FASTQ record separator must start with '+'"
+    if not quality:
+        return "first FASTQ record quality is empty"
+    if len(sequence) != len(quality):
+        return "first FASTQ record sequence and quality lengths differ"
+    return None
+
+
+def _first_fastq_id(path: Path) -> str:
+    opener = gzip.open if path.name.lower().endswith(".gz") else open
+    with opener(path, "rt", encoding="utf-8", newline="") as handle:
+        return _fastq_header_id(handle.readline().rstrip("\r\n"))
+
+
+def _preflight_pair(r1: Path, r2: Path) -> list[str]:
+    # Preflight catches obvious input/structural errors only. Full FASTQ quality control is delegated to FastQC.
+    errors = []
+    for label, path in (("fastq_1", r1), ("fastq_2", r2)):
+        problem = _preflight(path)
+        if problem:
+            errors.append(f"{label}: {problem} '{path}'")
+    if not errors:
+        try:
+            if _first_fastq_id(r1) != _first_fastq_id(r2):
+                errors.append(f"fastq_1 and fastq_2 first read identifiers differ: '{r1}' vs '{r2}'")
+        except (OSError, UnicodeError) as exc:
+            errors.append(f"cannot compare first FASTQ mate identifiers: {exc}")
+    return errors
 
 
 def validate(path: Path, launch_dir: Path) -> dict:
@@ -106,6 +158,14 @@ def discover(path: Path, naming: str, source_root: Path | None = None) -> dict:
 def _result(rows: list[dict], errors: list[str]) -> dict:
     if not rows:
         errors.append("samplesheet has no data rows")
+    checked_pairs: set[tuple[Path, Path]] = set()
+    for row in rows:
+        pair = (Path(row["fastq_1"]), Path(row["fastq_2"]))
+        if pair in checked_pairs:
+            continue
+        checked_pairs.add(pair)
+        if pair[0].is_file() and pair[1].is_file() and all(os.access(path, os.R_OK) for path in pair):
+            errors.extend(f"{row['sample']}: {problem}" for problem in _preflight_pair(*pair))
     if errors:
         raise ValueError("Samplesheet validation failed:\n- " + "\n- ".join(dict.fromkeys(errors)))
     rows = sorted(rows, key=lambda row: (row["sample"], row["fastq_1"], row["fastq_2"]))

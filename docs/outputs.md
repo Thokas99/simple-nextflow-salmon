@@ -13,3 +13,5 @@ y <- edgeR::calcNormFactors(y)
 ```
 
 `sample_count_summary.tsv` is the canonical per-sample summary. `qc/salmon_metrics.tsv` copies native Salmon `aux_info/meta_info.json` fields and adds the number of normalized FASTQ pairs; it does not reinterpret Salmon counts or calculate custom mapping rates. MultiQC combines FastQC, native Salmon, and the two post-tximport RNA metrics.
+
+`pipeline_info/software_versions.tsv` records the runtime Nextflow version plus the Salmon, FastQC, MultiQC, Python, R, and tximport versions used by the provenance process. The run fails if the runtime Salmon version differs from the pinned environment/cache identity.

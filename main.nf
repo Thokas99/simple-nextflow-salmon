@@ -12,6 +12,45 @@ include { TXIMPORT } from './modules/tximport'
 include { ESTIMATED_COUNT_SUMMARY } from './modules/estimated_count_summary'
 include { PROVENANCE } from './modules/provenance'
 
+def repository_version() {
+    def version = new File(projectDir.toString(), 'VERSION').text.trim()
+    if (!version) error 'VERSION must contain the pipeline version'
+    version
+}
+
+def print_help() {
+    println """simple-nextflow-salmon ${repository_version()}
+
+Input:
+  --fastq_dir       Directory for paired FASTQ auto-discovery
+  --samplesheet     CSV with sample, fastq_1, fastq_2
+  --fastq_naming    auto | illumina | mgi | simple
+
+Reference:
+  --reference_dir   Raw GENCODE reference directory
+  --gencode_release GENCODE release number
+  --genome_patch    GRCh38 patch number
+  --salmon_k        Odd Salmon index k-mer (1-31)
+  --download_reference  Download missing official GENCODE files (false by default)
+
+Analysis:
+  --lib_type        Salmon library type (default: A)
+  --outdir          Output directory (default: results)
+
+Utilities:
+  --validate_only   Normalize and validate inputs without scheduling analysis
+  --refresh_reference  Require a new immutable reference cache entry
+  --help            Show this help
+  --version         Show the pipeline version
+
+Advanced CPU and memory parameters are documented in README.md and nextflow.config.
+"""
+}
+
+def cli_flag(value) {
+    value?.toString()?.toLowerCase() in ['true', '1', 'yes']
+}
+
 def fail_errors(errors, heading = 'Parameter validation failed') {
     if (errors) error "${heading}:\n- ${errors.unique().join('\n- ')}"
 }
@@ -59,7 +98,7 @@ def sha256(path) {
 
 def validate_params() {
     def errors = []
-    def boolean_names = ['validate_only', 'refresh_reference']
+    def boolean_names = ['validate_only', 'refresh_reference', 'download_reference']
     def booleans = boolean_names.collectEntries { name -> [(name): as_bool(params[name], name, errors)] }
     if (!(params.lib_type ==~ /^(A|[IU][SFUO][RFUO])$/)) errors << "--lib_type '${params.lib_type}' is invalid; use A or a Salmon paired-end library code"
     def salmon_k = params.salmon_k.toString().isInteger() ? params.salmon_k.toString().toInteger() : 0
@@ -89,12 +128,38 @@ def validate_params() {
      input_kind: input_kind, input_arg: input_arg, input_path: input_path]
 }
 
-def reference_inputs(raw_dir) {
-    def refs = [
+def expected_reference_paths(raw_dir) {
+    [
         user_file("${raw_dir}/gencode.v${params.gencode_release}.transcripts.fa.gz"),
         user_file("${raw_dir}/GRCh38.p${params.genome_patch}.genome.fa.gz"),
         user_file("${raw_dir}/gencode.v${params.gencode_release}.chr_patch_hapl_scaff.annotation.gtf.gz")
     ]
+}
+
+def ensure_references(raw_dir, download) {
+    def refs = expected_reference_paths(raw_dir)
+    def missing = refs.findAll { ref -> !ref.isFile() || ref.toFile().length() == 0 }
+    if (!missing) return
+    if (!download) {
+        error """Reference files are missing under ${raw_dir}:
+- ${missing.collect { ref -> ref.toString() }.join('\n- ')}
+
+Obtain the selected official GENCODE release manually from https://www.gencodegenes.org/human/ or rerun with --download_reference true.
+Official files are served from https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_${params.gencode_release}/ and must retain the expected filenames."""
+    }
+    def command = ['python3', new File(projectDir.toString(), 'scripts/download_reference.py').toString(),
+                   '--reference-dir', raw_dir.toString(), '--gencode-release', params.gencode_release.toString(),
+                   '--genome-patch', params.genome_patch.toString()]
+    def process = command.execute()
+    def stdout = new StringBuffer()
+    def stderr = new StringBuffer()
+    process.waitForProcessOutput(stdout, stderr)
+    if (process.exitValue() != 0) error "Automatic GENCODE reference download failed:\n${stderr ?: stdout}"
+    if (stdout) log.info stdout.toString().trim()
+}
+
+def reference_inputs(raw_dir) {
+    def refs = expected_reference_paths(raw_dir)
     def errors = []
     refs.each { ref ->
         if (!ref.isFile()) errors << "Reference file not found: ${ref}"
@@ -125,6 +190,14 @@ def cache_manifest(cache_dir, expected, salmon_version) {
 }
 
 workflow {
+    if (cli_flag(params.help)) {
+        print_help()
+        System.exit(0)
+    }
+    if (cli_flag(params.version)) {
+        println repository_version()
+        System.exit(0)
+    }
     def checked = validate_params()
     def normalized = NORMALIZE_INPUT(tuple(checked.input_arg, checked.input_path), params.fastq_naming, checked.input_kind)
     def normalized_sheet = normalized.samplesheet
@@ -134,6 +207,7 @@ workflow {
     def samples = normalized.metadata.map { metadata_file -> new groovy.json.JsonSlurper().parse(metadata_file.toFile()).samples }
         .flatten()
         .map { sample -> tuple(sample.sample.toString(), sample.fastq_1.collect { path_text -> file(path_text.toString(), checkIfExists: true) }, sample.fastq_2.collect { path_text -> file(path_text.toString(), checkIfExists: true) }, sample.fastq_pairs) }
+    ensure_references(checked.reference_dir, checked.booleans.download_reference)
     def refs = reference_inputs(checked.reference_dir)
     def fingerprints = [transcript_sha256: sha256(refs[0]), genome_sha256: sha256(refs[1]), gtf_sha256: sha256(refs[2])]
     def salmon_version = installed_salmon_version()

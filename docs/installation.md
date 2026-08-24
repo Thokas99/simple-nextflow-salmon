@@ -8,7 +8,7 @@ The `conda` profile asks Nextflow to create the pinned environment in `envs/salm
 
 ```bash
 NXF_ANSI_LOG=0 nextflow run Thokas99/simple-nextflow-salmon \
-  -r v0.4.0 -profile conda --fastq_dir /data/fastqs \
+  -r v0.5.0 -profile conda --fastq_dir /data/fastqs \
   --reference_dir /data/reference/raw --outdir results
 ```
 
@@ -24,4 +24,4 @@ The transparent [`Containerfile`](../Containerfile) builds the same Conda enviro
 
 ## Dependency policy
 
-Dependencies are pinned intentionally. Salmon remains 2.3.4 for 0.4.0. Upgrades require compatibility review, the real miniature workflow, documentation, and a release note; mutable `latest` tags are not used.
+Dependencies are pinned intentionally. Salmon remains 2.3.4 for 0.5.0. Upgrades require compatibility review, the real miniature workflow, documentation, and a release note; mutable `latest` tags are not used.

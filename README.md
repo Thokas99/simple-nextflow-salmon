@@ -29,7 +29,7 @@ Run the released workflow directly from GitHub with automatic FASTQ discovery:
 
 ```bash
 NXF_ANSI_LOG=0 nextflow run Thokas99/simple-nextflow-salmon \
-  -r v0.4.0 -profile conda \
+  -r v0.5.0 -profile conda \
   --fastq_dir /data/fastqs \
   --reference_dir /data/reference/GRCh38_GENCODE/raw \
   --outdir results
@@ -39,7 +39,7 @@ Or provide an explicit samplesheet:
 
 ```bash
 NXF_ANSI_LOG=0 nextflow run Thokas99/simple-nextflow-salmon \
-  -r v0.4.0 -profile conda \
+  -r v0.5.0 -profile conda \
   --samplesheet samplesheet.csv \
   --reference_dir /data/reference/GRCh38_GENCODE/raw \
   --outdir results
@@ -56,11 +56,13 @@ NXF_ANSI_LOG=0 nextflow run . -profile conda \
 
 `NXF_ANSI_LOG=0` (equivalent to `-ansi-log false`) disables Nextflow's animated ANSI status display and produces ordinary line-oriented logs. This is useful for `nohup`, log files, HPC schedulers, and long sequencing runs.
 
+Use `nextflow run . --help` for the concise parameter list or `nextflow run . --version` for the checkout version. Advanced CPU and memory parameters remain in `nextflow.config`.
+
 For a detached background run:
 
 ```bash
 NXF_ANSI_LOG=0 nohup nextflow run Thokas99/simple-nextflow-salmon \
-  -r v0.4.0 -profile conda \
+  -r v0.5.0 -profile conda \
   --fastq_dir /data/fastqs \
   --reference_dir /data/reference/GRCh38_GENCODE/raw \
   --outdir results \
@@ -102,6 +104,25 @@ For the defaults (`--gencode_release 50 --genome_patch 14`), provide:
 └── gencode.v50.chr_patch_hapl_scaff.annotation.gtf.gz
 ```
 
+### Manual reference setup
+
+Download those three files from the official [GENCODE human releases](https://www.gencodegenes.org/human/) FTP directory for the selected release, and keep them under `--reference_dir` with the exact filenames above. The corresponding official checksum file is `MD5SUMS` in the same [EBI release directory](https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_50/).
+
+### Automatic reference setup
+
+Missing files can be downloaded explicitly from the official EBI GENCODE source and verified against `MD5SUMS`:
+
+```bash
+NXF_ANSI_LOG=0 nextflow run Thokas99/simple-nextflow-salmon \
+  -r v0.5.0 -profile conda \
+  --fastq_dir /data/fastqs \
+  --reference_dir /data/reference/GRCh38_GENCODE/raw \
+  --download_reference true \
+  --outdir results
+```
+
+Automatic downloading is opt-in. Existing non-empty reference files are never overwritten; failed downloads are discarded before the normal reference validation and immutable cache fingerprinting steps.
+
 The workflow builds and reuses an immutable, source-fingerprinted full-decoy Salmon cache. Its identity includes reference release and patch, source SHA-256 fingerprints, the Salmon version from the committed Conda environment, index k-mer, and index options. See [reference caching](docs/reference-cache.md).
 
 ## Outputs
@@ -113,10 +134,10 @@ results/
 ├── salmon/<sample>/quant.sf
 ├── tximport/
 ├── summary/sample_count_summary.tsv
-└── pipeline_info/{resolved_samplesheet.csv,run_provenance.json,...}
+└── pipeline_info/{resolved_samplesheet.csv,run_provenance.json,software_versions.tsv,...}
 ```
 
-Salmon produces fractional estimated fragment counts, TPM, and effective lengths. tximport produces gene-level estimated-count, TPM, effective-length, annotation, `tx2gene`, and RDS outputs.
+Salmon produces fractional estimated fragment counts, TPM, and effective lengths. tximport produces gene-level estimated-count, TPM, effective-length, annotation, `tx2gene`, and RDS outputs. `pipeline_info/software_versions.tsv` records the runtime Nextflow, Salmon, FastQC, MultiQC, Python, R, and tximport versions.
 
 ## QC and MultiQC
 
@@ -128,7 +149,7 @@ QC values are reported for review. The workflow does not automatically filter sa
 
 `-profile conda` is the primary local and HPC path. It enables Micromamba and uses the pinned [`envs/salmon-rnaseq.yml`](envs/salmon-rnaseq.yml) environment; manual activation is not required.
 
-Use `-profile ci` for small CI-safe resources. The miniature workflow tests compose profiles as `-profile conda,ci`. Container profiles use `ghcr.io/thokas99/simple-nextflow-salmon:0.4.0`.
+Use `-profile ci` for small CI-safe resources. The miniature workflow tests compose profiles as `-profile conda,ci`. Container profiles use `ghcr.io/thokas99/simple-nextflow-salmon:0.5.0`.
 
 ## Reproducibility
 

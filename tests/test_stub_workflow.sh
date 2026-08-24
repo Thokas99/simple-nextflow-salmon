@@ -109,6 +109,8 @@ for report in execution_report.html execution_timeline.html execution_trace.tsv 
     test -s "$tmp_dir/results-fresh/pipeline_info/$report"
 done
 test -s "$tmp_dir/results-fresh/pipeline_info/run_provenance.json"
+test -s "$tmp_dir/results-fresh/pipeline_info/software_versions.tsv"
+awk -F '\t' '$1 == "Salmon" && $2 == "2.3.4" { found = 1 } END { exit !found }' "$tmp_dir/results-fresh/pipeline_info/software_versions.tsv"
 test -s "$tmp_dir/results-fresh/summary/sample_count_summary.tsv"
 ! grep -R -q 'input_fragment_counts\|alignment_rate\|quantification_rate\|compatibility_rate' main.nf modules scripts README.md
 ! grep -q -E 'multiqc_inputs|cat > multiqc_config.yml' modules/multiqc.nf

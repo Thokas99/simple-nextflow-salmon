@@ -4,6 +4,14 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-24
+
+### Added
+
+- Constant-time first-record FASTQ preflight before FastQC.
+- Runtime software version provenance and concise `--help`/`--version` output.
+- Opt-in, checksum-verified official GENCODE reference downloads.
+
 ## [0.4.0] - 2026-08-07
 
 ### Added
@@ -56,7 +64,8 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Scientific defaults remain Salmon 2.3.4, automatic library detection, `--deterministic`, `--seqBias`, `--gcBias`, and `countsFromAbundance = "no"`.
 - Use `--lanes-as-samples` only to preserve the pre-0.3 generator behavior for detected lanes.
 
-[Unreleased]: https://github.com/Thokas99/simple-nextflow-salmon/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/Thokas99/simple-nextflow-salmon/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/Thokas99/simple-nextflow-salmon/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/Thokas99/simple-nextflow-salmon/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/Thokas99/simple-nextflow-salmon/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/Thokas99/simple-nextflow-salmon/compare/v0.2.1...v0.3.0

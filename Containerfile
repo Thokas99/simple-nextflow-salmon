@@ -1,4 +1,4 @@
-FROM condaforge/miniforge3:26.5.3-0
+FROM condaforge/miniforge3:26.7.2-0
 
 LABEL org.opencontainers.image.source="https://github.com/Thokas99/simple-nextflow-salmon" \
       org.opencontainers.image.version="0.5.0" \
